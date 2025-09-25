@@ -1,6 +1,6 @@
 {
   "name": "cesium-kit",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Cesium utility components. RippleMarker and more.",
   "type": "module",
   "main": "dist/index.js",
@@ -25,14 +25,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/leongaooo/GlobeX.git"
+    "url": "git+https://github.com/leongaooo/cesium-kit.git"
   },
   "author": "GlobeX Contributors",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/leongaooo/GlobeX/issues"
+    "url": "https://github.com/leongaooo/cesium-kit/issues"
   },
-  "homepage": "https://github.com/leongaooo/GlobeX#readme",
+  "homepage": "https://github.com/leongaooo/cesium-kit#readme",
   "keywords": [
     "cesium",
     "3d",

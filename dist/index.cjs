@@ -30,11 +30,13 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var index_exports = {};
 __export(index_exports, {
-  addCesiumRippleMarker: () => addCesiumRippleMarker
+  RippleMarker: () => RippleMarker
 });
 module.exports = __toCommonJS(index_exports);
+
+// src/RippleMarker/index.ts
 var Cesium = __toESM(require("cesium"), 1);
-function addCesiumRippleMarker(viewer, {
+function RippleMarker(viewer, {
   lon,
   lat,
   height = 0,
@@ -147,5 +149,5 @@ function addCesiumRippleMarker(viewer, {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
-  addCesiumRippleMarker
+  RippleMarker
 });

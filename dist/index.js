@@ -1,6 +1,6 @@
-// src/index.ts
+// src/RippleMarker/index.ts
 import * as Cesium from "cesium";
-function addCesiumRippleMarker(viewer, {
+function RippleMarker(viewer, {
   lon,
   lat,
   height = 0,
@@ -112,5 +112,5 @@ function addCesiumRippleMarker(viewer, {
   };
 }
 export {
-  addCesiumRippleMarker
+  RippleMarker
 };

@@ -1,7 +1,7 @@
 {
   "name": "globex",
   "version": "0.1.0",
-  "description": "Cesium utility components. addCesiumRippleMarker and more.",
+  "description": "Cesium utility components. RippleMarker and more.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",

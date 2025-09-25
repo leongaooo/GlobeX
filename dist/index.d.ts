@@ -33,6 +33,6 @@ interface RippleMarker {
  * @param options.surfaceHeight 三棱锥和波纹的基准高度（米）
  * @returns 包含remove方法的对象，用于移除标点
  */
-declare function addCesiumRippleMarker(viewer: Cesium.Viewer, { lon, lat, height, color, maxRadius, duration, loops, pyramidHeight, baseRadius, floatEnabled, surfaceHeight, }: RippleMarkerOptions): RippleMarker;
+declare function RippleMarker(viewer: Cesium.Viewer, { lon, lat, height, color, maxRadius, duration, loops, pyramidHeight, baseRadius, floatEnabled, surfaceHeight, }: RippleMarkerOptions): RippleMarker;
 
-export { addCesiumRippleMarker };
+export { RippleMarker };

@@ -1,1 +1,8 @@
-dist/
+# Keep node_modules out of the tarball (npm does this by default, but explicit is ok)
+node_modules/
+# Exclude local logs and editor junk
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+.vscode/
+*.local

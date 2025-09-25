@@ -1,6 +1,6 @@
 import * as Cesium from 'cesium';
 
-interface RippleMarkerOptions {
+export interface RippleMarkerOptions {
     lon: number;
     lat: number;
     height?: number;
@@ -14,7 +14,7 @@ interface RippleMarkerOptions {
     surfaceHeight?: number; // 三棱锥与波纹基准高度（米）
 }
 
-interface RippleMarker {
+export interface RippleMarker {
     remove: () => void;
 }
 

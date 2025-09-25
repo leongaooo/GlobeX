@@ -1,36 +1,68 @@
 {
   "name": "globex",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cesium utility components. RippleMarker and more.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs",
     "dev": "tsup src/index.ts --watch --dts --format esm,cjs",
     "clean": "rimraf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "dev:play": "concurrently \"npm:dev\" \"npm:play:start\"",
+    "play:start": "npm --prefix playground run dev",
+    "play:install": "npm --prefix playground i"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yourname/GlobeX.git"
+    "url": "git+https://github.com/leongaooo/GlobeX.git"
   },
   "author": "GlobeX Contributors",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/yourname/GlobeX/issues"
+    "url": "https://github.com/leongaooo/GlobeX/issues"
   },
-  "homepage": "https://github.com/yourname/GlobeX#readme",
+  "homepage": "https://github.com/leongaooo/GlobeX#readme",
+  "keywords": [
+    "cesium",
+    "3d",
+    "globe",
+    "visualization",
+    "ripple",
+    "marker",
+    "typescript"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"
   },
-  "dependencies": {
-    "cesium": "^1.133.1"
+  "peerDependencies": {
+    "cesium": ">=1.103.0"
+  },
+  "peerDependenciesMeta": {
+    "cesium": {
+      "optional": false
+    }
   }
 }

@@ -111,6 +111,25 @@ function RippleMarker(viewer, {
     remove
   };
 }
+
+// src/ViewerClick/index.ts
+import * as Cesium2 from "cesium";
+function ViewerClick(viewer, callback) {
+  const handler = viewer.screenSpaceEventHandler;
+  handler.setInputAction((event) => {
+    const pickedPosition = viewer.scene.pickPosition(event.position);
+    if (pickedPosition) {
+      const cartographic = Cesium2.Cartographic.fromCartesian(pickedPosition);
+      const lon = Cesium2.Math.toDegrees(cartographic.longitude);
+      const lat = Cesium2.Math.toDegrees(cartographic.latitude);
+      callback(lon, lat, event);
+    }
+  }, Cesium2.ScreenSpaceEventType.LEFT_CLICK);
+  return () => {
+    handler.removeInputAction(Cesium2.ScreenSpaceEventType.LEFT_CLICK);
+  };
+}
 export {
-  RippleMarker
+  RippleMarker,
+  ViewerClick
 };

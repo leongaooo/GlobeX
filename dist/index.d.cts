@@ -35,4 +35,10 @@ interface RippleMarker {
  */
 declare function RippleMarker(viewer: Cesium.Viewer, { lon, lat, height, color, maxRadius, duration, loops, pyramidHeight, baseRadius, floatEnabled, surfaceHeight, }: RippleMarkerOptions): RippleMarker;
 
-export { RippleMarker };
+interface ViewerClickEvent {
+    position: Cesium.Cartesian2;
+}
+type ViewerClickCallback = (lon: number, lat: number, event: ViewerClickEvent) => void;
+declare function ViewerClick(viewer: Cesium.Viewer, callback: ViewerClickCallback): () => void;
+
+export { RippleMarker, type RippleMarkerOptions, ViewerClick, type ViewerClickCallback, type ViewerClickEvent };

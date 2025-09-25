@@ -16,7 +16,6 @@ GlobeX 是一个开源的 Cesium 组件工具库，基于 TypeScript 开发，�
 npm i globex cesium
 
 # 或使用 pnpm
-double-click to copy
 pnpm add globex cesium
 
 # 或使用 yarn
@@ -32,6 +31,7 @@ yarn add globex cesium
 | 组件名       | 介绍                                                                     | 文档链接                                                 |
 | ------------ | ------------------------------------------------------------------------ | -------------------------------------------------------- |
 | RippleMarker | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点 | [src/RippleMarker/README.md](src/RippleMarker/README.md) |
+| ViewerClick  | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示   | [src/ViewerClick/README.md](src/ViewerClick/README.md)   |
 
 ## 兼容性与打包说明
 
@@ -41,32 +41,55 @@ yarn add globex cesium
 
 ---
 
-## 本地开发
+## 本地开发与 Playground 体验
+
+### 一键启动本地开发
+
+仓库根目录：
 
 ```bash
-# 安装依赖
+# 安装依赖（根与 playground）
 npm i
+npm run play:install
 
-# 开发构建（监听模式）
+# 启动并行开发：左侧监听构建库，右侧启动 playground
+yarn dlx echo "If you use yarn, remove this line" # 可删除，仅示意
+npm run dev:play
+```
+
+说明：
+
+- `npm run dev` 会以监听模式构建库到 `dist/`。
+- `npm run play:start` 会启动 `playground`（已配置 `vite-plugin-cesium`）。
+- `npm run dev:play` 通过 `concurrently` 同时运行二者。
+
+### 在 playground 使用最新本地包
+
+两种方式：
+
+- 推荐：直接从源码构建并由 Vite 走工作区依赖（已在 `playground` 配好 `vite-plugin-cesium`）。
+- 或者：打包本地 tarball 并安装（适合模拟发布前体验）
+
+```bash
+# 在仓库根目录构建并打包
+npm run build && npm pack
+
+# 在 playground 安装最新 tarball
+cd playground
+npm i ../globex-*.tgz
 npm run dev
-
-# 产物构建
-npm run build
 ```
 
-项目结构:
+若你看到 `does not provide an export named` 等提示，请确保：
 
-```
-GlobeX/
-  ├─ src/
-  │  └─ index.ts
-  ├─ dist/              # 构建产物（自动生成）
-  ├─ package.json
-  ├─ tsconfig.json
-  ├─ README.md
-  ├─ .gitignore
-  └─ .npmignore
-```
+- 已重新构建库（`npm run build`）。
+- playground 已重启或重新安装 tarball。
+- 如仍不生效，删除 `playground/node_modules` 和 `package-lock.json` 后重装。
+
+### Cesium 资源与底图（本地稳定预览）
+
+- 已启用 `vite-plugin-cesium`，自动拷贝 Cesium 静态资源与 Workers。
+- 为避免外部瓦片/鉴权问题，默认使用 `GridImageryProvider` 与椭球地形，可在验证后换回在线底图与地形。
 
 ---
 

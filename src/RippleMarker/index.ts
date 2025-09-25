@@ -51,6 +51,11 @@ export function RippleMarker(
         surfaceHeight = 50,
     }: RippleMarkerOptions,
 ): RippleMarker {
+    // 确保动画与连续渲染开启，避免在部分工程默认 requestRenderMode 下动画不更新
+    if (viewer && viewer.scene) {
+        viewer.scene.requestRenderMode = false;
+        if (viewer.clock) viewer.clock.shouldAnimate = true;
+    }
     const entities: Cesium.Entity[] = [];
     const cesiumColor = Cesium.Color.fromCssColorString(color);
     const baseRadiusMeters = baseRadius ?? pyramidHeight * 0.3;
@@ -75,29 +80,36 @@ export function RippleMarker(
     // 创建动态波纹圈
     const numWaves = 3; // 同时显示的波纹数量
     const waveEntities = Array.from({ length: numWaves }, (_, index) => {
+        // 统一的半径属性，基于传入的 Cesium 时间，避免多次 Date.now 带来的微小差异
+        const radiusProperty = new Cesium.CallbackProperty((time) => {
+            const safeDuration = Math.max(1, duration);
+            const t = time ? Cesium.JulianDate.toDate(time).getTime() : Date.now();
+            const elapsed = (t % safeDuration) / safeDuration;
+            const wave = (elapsed + index / numWaves) % 1;
+            // 至少为 1，避免 0 导致几何异常；并确保为有限数值
+            const r = Math.max(1, (wave || 0) * Math.max(1, maxRadius));
+            return r;
+        }, false);
+
+        const materialProperty = new Cesium.ColorMaterialProperty(
+            new Cesium.CallbackProperty((time) => {
+                const safeDuration = Math.max(1, duration);
+                const t = time ? Cesium.JulianDate.toDate(time).getTime() : Date.now();
+                const elapsed = (t % safeDuration) / safeDuration;
+                const wave = (elapsed + index / numWaves) % 1;
+                const alpha = (1 - wave) ** 2 * 0.6;
+                return Cesium.Color.fromAlpha(cesiumColor, alpha);
+            }, false),
+        );
+
         return viewer.entities.add({
             position: tipPosition,
             ellipse: {
-                semiMinorAxis: new Cesium.CallbackProperty((_time) => {
-                    const elapsed = (Date.now() % duration) / duration;
-                    const wave = (elapsed + index / numWaves) % 1;
-                    return wave * maxRadius;
-                }, false),
-                semiMajorAxis: new Cesium.CallbackProperty((_time) => {
-                    const elapsed = (Date.now() % duration) / duration;
-                    const wave = (elapsed + index / numWaves) % 1;
-                    return wave * maxRadius;
-                }, false),
+                semiMinorAxis: radiusProperty,
+                semiMajorAxis: radiusProperty,
                 // 底部波纹保持在固定高度（surfaceHeight），不随三棱锥浮动
                 height: baseHeight,
-                material: new Cesium.ColorMaterialProperty(
-                    new Cesium.CallbackProperty((_time) => {
-                        const elapsed = (Date.now() % duration) / duration;
-                        const wave = (elapsed + index / numWaves) % 1;
-                        const alpha = (1 - wave) ** 2 * 0.6;
-                        return Cesium.Color.fromAlpha(cesiumColor, alpha);
-                    }, false),
-                ),
+                material: materialProperty,
             },
         });
     });

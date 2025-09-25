@@ -5,7 +5,7 @@
   <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount } from 'vue';
   import * as Cesium from 'cesium';
-  import { RippleMarker, ViewerClick } from "globex";
+  import { RippleMarker, ViewerClick } from "./index";
 
   const viewerContainer = ref<HTMLDivElement>();
   let viewer: Cesium.Viewer | null = null;

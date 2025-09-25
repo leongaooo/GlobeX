@@ -1,5 +1,5 @@
 {
-  "name": "globex",
+  "name": "cesium-kit",
   "version": "0.1.1",
   "description": "Cesium utility components. RippleMarker and more.",
   "type": "module",

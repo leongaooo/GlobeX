@@ -1,0 +1,36 @@
+{
+  "name": "globex",
+  "version": "0.1.0",
+  "description": "Cesium utility components. addCesiumRippleMarker and more.",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs",
+    "dev": "tsup src/index.ts --watch --dts --format esm,cjs",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourname/GlobeX.git"
+  },
+  "author": "GlobeX Contributors",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourname/GlobeX/issues"
+  },
+  "homepage": "https://github.com/yourname/GlobeX#readme",
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "cesium": "^1.133.1"
+  }
+}

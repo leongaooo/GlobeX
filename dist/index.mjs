@@ -1,4 +1,3 @@
-"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -7,10 +6,6 @@ var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
 };
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
@@ -28,11 +23,10 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/mersenne-twister/src/mersenne-twister.js
 var require_mersenne_twister = __commonJS({
-  "node_modules/mersenne-twister/src/mersenne-twister.js"(exports2, module2) {
+  "node_modules/mersenne-twister/src/mersenne-twister.js"(exports, module) {
     "use strict";
     var MersenneTwister2 = function(seed) {
       if (seed == void 0) {
@@ -131,17 +125,9 @@ var require_mersenne_twister = __commonJS({
       var a = this.random_int() >>> 5, b = this.random_int() >>> 6;
       return (a * 67108864 + b) * (1 / 9007199254740992);
     };
-    module2.exports = MersenneTwister2;
+    module.exports = MersenneTwister2;
   }
 });
-
-// src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  RippleMarker: () => RippleMarker,
-  ViewerClick: () => ViewerClick
-});
-module.exports = __toCommonJS(index_exports);
 
 // node_modules/@cesium/engine/Source/Core/defined.js
 function defined(value) {
@@ -3964,8 +3950,7 @@ function ViewerClick(viewer, callback) {
     handler.removeInputAction(ScreenSpaceEventType_default.LEFT_CLICK);
   };
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
+export {
   RippleMarker,
   ViewerClick
-});
+};

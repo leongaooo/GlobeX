@@ -28,10 +28,11 @@ yarn add cesium-kit cesium
 
 ## 快速开始
 
-| 组件名       | 介绍                                                                     | 文档链接                                                 |
-| ------------ | ------------------------------------------------------------------------ | -------------------------------------------------------- |
-| RippleMarker | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点 | [src/RippleMarker/README.md](src/RippleMarker/README.md) |
-| ViewerClick  | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示   | [src/ViewerClick/README.md](src/ViewerClick/README.md)   |
+| 组件名          | 介绍                                                                     | 文档链接                                                       |
+| --------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| RippleMarker    | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点 | [src/RippleMarker/README.md](src/RippleMarker/README.md)       |
+| ViewerClick     | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示   | [src/ViewerClick/README.md](src/ViewerClick/README.md)         |
+| CameraMoveEvent | 监听 Cesium 相机移动事件，实时获取相机位置信息，支持控制台打印和位置查询 | [src/CameraMoveEvent/README.md](src/CameraMoveEvent/README.md) |
 
 ## 兼容性与打包说明
 

@@ -12,10 +12,26 @@ export interface RippleMarkerOptions {
     baseRadius?: number; // 三棱锥底部半径（米），控制宽度
     floatEnabled?: boolean; // 是否启用上下浮动动画
     surfaceHeight?: number; // 三棱锥与波纹基准高度（米）
+    id?: string; // 唯一标识符
+    data?: any; // 绑定数据，点击时回调返回
+    label?: {
+        text?: string; // 标签文字
+        font?: string; // 字体样式，如 '14px sans-serif'
+        fillColor?: string; // 文字颜色，CSS 颜色字符串
+        outlineColor?: string; // 描边颜色，CSS 颜色字符串
+        outlineWidth?: number; // 描边宽度
+        pixelOffset?: { x: number; y: number }; // 像素偏移
+        scale?: number; // 文字缩放
+        show?: boolean; // 是否显示标签
+    };
+    onClick?: (data: any, position: { lon: number; lat: number }) => void; // 点击回调
 }
 
 export interface RippleMarker {
     remove: () => void;
+    show: () => void;
+    hide: () => void;
+    setVisible: (visible: boolean) => void;
 }
 
 /**
@@ -49,6 +65,10 @@ export function RippleMarker(
         baseRadius,
         floatEnabled = true,
         surfaceHeight = 50,
+        id,
+        data,
+        label,
+        onClick,
     }: RippleMarkerOptions,
 ): RippleMarker {
     // 确保动画与连续渲染开启，避免在部分工程默认 requestRenderMode 下动画不更新
@@ -155,6 +175,44 @@ export function RippleMarker(
         );
     }
 
+    // 创建标签实体
+    let labelEntity: Cesium.Entity | null = null;
+    if (label && label.text && label.show !== false) {
+        const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight + pyramidHeight + 100);
+        labelEntity = viewer.entities.add({
+            id: id ? `${id}_label` : undefined,
+            position: labelPosition,
+            label: {
+                text: label.text,
+                font: label.font || '14px sans-serif',
+                fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
+                outlineColor: label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK,
+                outlineWidth: label.outlineWidth || 2,
+                pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -45),
+                scale: label.scale || 1.0,
+                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            },
+        });
+        entities.push(labelEntity);
+    }
+
+    // 创建点击事件处理器
+    let clickHandler: (() => void) | null = null;
+    if (onClick) {
+        viewer.screenSpaceEventHandler.setInputAction((event: any) => {
+            const pickedObject = viewer.scene.pick(event.position);
+            if (pickedObject && pickedObject.id && entities.includes(pickedObject.id)) {
+                onClick(data, { lon, lat });
+            }
+        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+        // 创建清理函数
+        clickHandler = () => {
+            viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        };
+    }
+
     let alive = true;
 
     // 动画更新
@@ -176,10 +234,35 @@ export function RippleMarker(
     function remove() {
         alive = false;
         entities.forEach((entity) => viewer.entities.remove(entity));
+        if (clickHandler) {
+            clickHandler();
+        }
         animationHandler();
+    }
+
+    // 显示/隐藏控制
+    function show() {
+        entities.forEach((entity) => {
+            entity.show = true;
+        });
+    }
+
+    function hide() {
+        entities.forEach((entity) => {
+            entity.show = false;
+        });
+    }
+
+    function setVisible(visible: boolean) {
+        entities.forEach((entity) => {
+            entity.show = visible;
+        });
     }
 
     return {
         remove,
+        show,
+        hide,
+        setVisible,
     };
 }

@@ -60,7 +60,7 @@
   <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount } from 'vue';
   import * as Cesium from 'cesium';
-  import { RippleMarker, ViewerClick, CameraMoveEvent } from "./index.js";
+  import { RippleMarker, ViewerClick } from "./index.js";
 
   const viewerContainer = ref<HTMLDivElement>();
   let viewer: Cesium.Viewer | null = null;
@@ -119,14 +119,7 @@
         roll: 0.0
       }
     });
-    const cameraMoveEvent = CameraMoveEvent(viewer);
 
-
-    window['testCameraMoveEvent'] = ()=>{
-      const position = cameraMoveEvent.getPosition();
-      console.log(position);
-      cameraMoveEvent.remove();
-    };
     // 启用地球旋转
     viewer.scene.globe.enableLighting = true;
 

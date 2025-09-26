@@ -11,7 +11,11 @@ function RippleMarker(viewer, {
   pyramidHeight = 1e3,
   baseRadius,
   floatEnabled = true,
-  surfaceHeight = 50
+  surfaceHeight = 50,
+  id,
+  data,
+  label,
+  onClick
 }) {
   if (viewer && viewer.scene) {
     viewer.scene.requestRenderMode = false;
@@ -97,6 +101,38 @@ function RippleMarker(viewer, {
       })
     );
   }
+  let labelEntity = null;
+  if (label && label.text && label.show !== false) {
+    const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight + pyramidHeight + 100);
+    labelEntity = viewer.entities.add({
+      id: id ? `${id}_label` : void 0,
+      position: labelPosition,
+      label: {
+        text: label.text,
+        font: label.font || "14px sans-serif",
+        fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
+        outlineColor: label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK,
+        outlineWidth: label.outlineWidth || 2,
+        pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -45),
+        scale: label.scale || 1,
+        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM
+      }
+    });
+    entities.push(labelEntity);
+  }
+  let clickHandler = null;
+  if (onClick) {
+    viewer.screenSpaceEventHandler.setInputAction((event) => {
+      const pickedObject = viewer.scene.pick(event.position);
+      if (pickedObject && pickedObject.id && entities.includes(pickedObject.id)) {
+        onClick(data, { lon, lat });
+      }
+    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    clickHandler = () => {
+      viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    };
+  }
   let alive = true;
   const animationHandler = viewer.scene.postRender.addEventListener(() => {
     if (!alive) return;
@@ -112,10 +148,31 @@ function RippleMarker(viewer, {
   function remove() {
     alive = false;
     entities.forEach((entity) => viewer.entities.remove(entity));
+    if (clickHandler) {
+      clickHandler();
+    }
     animationHandler();
   }
+  function show() {
+    entities.forEach((entity) => {
+      entity.show = true;
+    });
+  }
+  function hide() {
+    entities.forEach((entity) => {
+      entity.show = false;
+    });
+  }
+  function setVisible(visible) {
+    entities.forEach((entity) => {
+      entity.show = visible;
+    });
+  }
   return {
-    remove
+    remove,
+    show,
+    hide,
+    setVisible
   };
 }
 
@@ -136,7 +193,60 @@ function ViewerClick(viewer, callback) {
     handler.removeInputAction(Cesium2.ScreenSpaceEventType.LEFT_CLICK);
   };
 }
+
+// src/CameraMoveEvent/index.ts
+import * as Cesium3 from "cesium";
+function CameraMoveEvent(viewer, { enableConsoleLog = true } = {}) {
+  let consoleLogEnabled = enableConsoleLog;
+  let currentPosition = null;
+  let moveEndHandler = null;
+  function getCurrentPosition() {
+    if (!viewer || !viewer.camera) return null;
+    const camera = viewer.camera;
+    const position = camera.position;
+    const cartographic = Cesium3.Cartographic.fromCartesian(position);
+    return {
+      longitude: Cesium3.Math.toDegrees(cartographic.longitude),
+      latitude: Cesium3.Math.toDegrees(cartographic.latitude),
+      height: cartographic.height
+    };
+  }
+  function logPosition(position) {
+    if (consoleLogEnabled) {
+      console.log(`\u76F8\u673A\u4F4D\u7F6E: \u7ECF\u5EA6 ${position.longitude.toFixed(6)}\xB0, \u7EAC\u5EA6 ${position.latitude.toFixed(6)}\xB0, \u9AD8\u5EA6 ${position.height.toFixed(2)}m`);
+    }
+  }
+  function onCameraMoveEnd() {
+    const position = getCurrentPosition();
+    if (position) {
+      currentPosition = position;
+      logPosition(position);
+    }
+  }
+  moveEndHandler = viewer.camera.moveEnd.addEventListener(onCameraMoveEnd);
+  const initialPosition = getCurrentPosition();
+  if (initialPosition) {
+    currentPosition = initialPosition;
+    logPosition(initialPosition);
+  }
+  function remove() {
+    if (moveEndHandler) {
+      moveEndHandler();
+      moveEndHandler = null;
+    }
+    currentPosition = null;
+  }
+  function setConsoleLog(enabled) {
+    consoleLogEnabled = enabled;
+  }
+  return {
+    remove,
+    getPosition: () => currentPosition,
+    setConsoleLog
+  };
+}
 export {
+  CameraMoveEvent,
   RippleMarker,
   ViewerClick
 };

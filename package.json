@@ -1,7 +1,7 @@
 {
   "name": "cesium-kit",
-  "version": "0.1.3",
-  "description": "Cesium utility components. RippleMarker and more.",
+  "version": "0.1.5",
+  "description": "Cesium utility components. RippleMarker | ViewerClick | CameraMoveEvent.",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -40,6 +40,12 @@
     "visualization",
     "ripple",
     "marker",
+    "viewer",
+    "click",
+    "camera",
+    "move",
+    "event",
+    "kit",
     "typescript"
   ],
   "files": [

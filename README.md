@@ -1,6 +1,6 @@
-# GlobeX
+# cesium-kit
 
-GlobeX 是一个开源的 Cesium 组件工具库，基于 TypeScript 开发，提供一系列即插即用的函数与工具，帮助开发者在 Cesium 场景中快速绘制、标注和交互。
+cesium-kit 是一个开源的 Cesium 组件工具库，基于 TypeScript 开发，提供一系列即插即用的函数与工具，帮助开发者在 Cesium 场景中快速绘制、标注和交互。
 
 - **快速交付**: 函数式 API，几行代码即可完成绘制与交付。
 - **类型安全**: TypeScript 全量类型，开发高效可靠。
@@ -13,13 +13,13 @@ GlobeX 是一个开源的 Cesium 组件工具库，基于 TypeScript 开发，�
 
 ```bash
 # 使用 npm
-npm i globex cesium
+npm i cesium-kit cesium
 
 # 或使用 pnpm
-pnpm add globex cesium
+pnpm add cesium-kit cesium
 
 # 或使用 yarn
-yarn add globex cesium
+yarn add cesium-kit cesium
 ```
 
 > 说明: `cesium` 是运行时依赖，请在你的应用中一并安装并初始化 `Cesium.Viewer`。
@@ -76,7 +76,7 @@ npm run build && npm pack
 
 # 在 playground 安装最新 tarball
 cd playground
-npm i ../globex-*.tgz
+npm i ../cesium-kit-*.tgz
 npm run dev
 ```
 
@@ -105,4 +105,4 @@ npm run dev
 
 ## 许可证
 
-MIT © GlobeX Contributors
+MIT © cesium-kit Contributors

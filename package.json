@@ -25,7 +25,10 @@
     "play:start": "npm --prefix playground run dev",
     "play:install": "npm --prefix playground i",
     "pb": "npm publish --access public",
-    "upv": "npm version patch --no-git-tag-version"
+    "upv": "npm version patch --no-git-tag-version",
+    "tag": "tsx scripts/create-tag.ts",
+    "tph": "tsx scripts/create-and-push-tag.ts",
+    "release": "npm run build && npm run tph && npm run pb"
   },
   "repository": {
     "type": "git",

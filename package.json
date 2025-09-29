@@ -1,6 +1,6 @@
 {
   "name": "cesium-kit",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Cesium utility components. RippleMarker | ViewerClick | CameraMoveEvent.",
   "type": "module",
   "main": "dist/index.js",
@@ -12,12 +12,14 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
       "default": "./dist/index.js"
-    }
+    },
+    "./styles/camera-control.css": "./dist/styles/camera-control.css"
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs",
+    "build": "node scripts/generate-exports.js && tsup && cpy \"src/styles/**/*.css\" dist/styles --parents && cpy \"dist/**/*\" playground/src/cesium-kit --parents",
     "dev": "tsup src/index.ts --watch --dts --format esm,cjs",
     "clean": "rimraf dist",
+    "pack": " npm version patch --no-git-tag-version && npm run build && npm pack",
     "prepublishOnly": "npm run build",
     "dev:play": "concurrently \"npm:dev\" \"npm:play:start\"",
     "play:start": "npm --prefix playground run dev",
@@ -53,12 +55,15 @@
     "README.md",
     "LICENSE"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "**/*.css"
+  ],
   "engines": {
     "node": ">=18"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "cpy-cli": "^6.0.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2"

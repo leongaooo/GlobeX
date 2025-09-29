@@ -33,6 +33,7 @@ yarn add cesium-kit cesium
 | RippleMarker    | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点 | [src/RippleMarker/README.md](src/RippleMarker/README.md)       |
 | ViewerClick     | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示   | [src/ViewerClick/README.md](src/ViewerClick/README.md)         |
 | CameraMoveEvent | 监听 Cesium 相机移动事件，实时获取相机位置信息，支持控制台打印和位置查询 | [src/CameraMoveEvent/README.md](src/CameraMoveEvent/README.md) |
+| CameraControl   | 相机控制组件，提供旋转、平移、街景、缩放、相机状态信息等功能             | [src/Camera-Control/README.md](src/Camera-Control/README.md)   |
 
 ## 兼容性与打包说明
 
@@ -44,48 +45,110 @@ yarn add cesium-kit cesium
 
 ## 本地开发与 Playground 体验
 
-### 一键启动本地开发
-
-仓库根目录：
+### 🚀 快速开始开发
 
 ```bash
-# 安装依赖（根与 playground）
+# 1. 安装依赖
 npm i
 npm run play:install
 
-# 启动并行开发：左侧监听构建库，右侧启动 playground
-yarn dlx echo "If you use yarn, remove this line" # 可删除，仅示意
+# 2. 启动开发环境（推荐）
 npm run dev:play
 ```
 
-说明：
+这将同时启动：
 
-- `npm run dev` 会以监听模式构建库到 `dist/`。
-- `npm run play:start` 会启动 `playground`（已配置 `vite-plugin-cesium`）。
-- `npm run dev:play` 通过 `concurrently` 同时运行二者。
+- **库构建监听**: 自动监听源码变化并构建到 `dist/`
+- **Playground 开发服务器**: 在 `http://localhost:5173` 启动 Vue 应用
 
-### 在 playground 使用最新本地包
+### 📦 构建与同步流程
 
-两种方式：
-
-- 推荐：直接从源码构建并由 Vite 走工作区依赖（已在 `playground` 配好 `vite-plugin-cesium`）。
-- 或者：打包本地 tarball 并安装（适合模拟发布前体验）
+项目采用**自动化构建同步**机制：
 
 ```bash
-# 在仓库根目录构建并打包
-npm run build && npm pack
+# 完整构建（包含自动同步到 playground）
+npm run build
+```
 
-# 在 playground 安装最新 tarball
+构建流程：
+
+1. **生成 CSS exports** - 自动扫描 `src/styles/` 并更新 `package.json` exports
+2. **TypeScript 打包** - 使用 tsup 构建 ESM/CJS 格式
+3. **复制 CSS 文件** - 将样式文件复制到 `dist/styles/`
+4. **同步到 playground** - 自动复制整个 `dist/` 到 `playground/src/cesium-kit/`
+
+### 🔄 开发工作流
+
+#### 方式一：实时开发（推荐）
+
+```bash
+npm run dev:play
+```
+
+- 源码修改 → 自动构建 → playground 自动热更新
+- 无需手动操作，开发体验最佳
+
+#### 方式二：手动构建测试
+
+```bash
+# 构建并同步到 playground
+npm run build
+
+# 启动 playground
+npm run play:start
+```
+
+#### 方式三：发布前测试
+
+```bash
+# 构建并打包
+npm run pack
+
+# 在 playground 安装测试
 cd playground
 npm i ../cesium-kit-*.tgz
 npm run dev
 ```
 
-若你看到 `does not provide an export named` 等提示，请确保：
+### 🛠️ 开发环境说明
 
-- 已重新构建库（`npm run build`）。
-- playground 已重启或重新安装 tarball。
-- 如仍不生效，删除 `playground/node_modules` 和 `package-lock.json` 后重装。
+- **Node 版本**: >= 18
+- **包管理器**: npm（推荐）
+- **构建工具**: tsup + cpy-cli
+- **开发服务器**: Vite + Vue 3
+- **Cesium 集成**: vite-plugin-cesium（自动处理静态资源）
+
+### 📁 项目结构
+
+```
+cesium-kit/
+├── src/                    # 源码目录
+│   ├── styles/            # CSS 样式文件
+│   ├── RippleMarker/      # 波纹标记组件
+│   ├── ViewerClick/       # 点击事件组件
+│   ├── CameraMoveEvent/   # 相机移动事件
+│   └── Camera-Control/    # 相机控制组件
+├── dist/                  # 构建输出
+├── playground/            # 开发测试环境
+│   └── src/
+│       └── cesium-kit/    # 自动同步的构建文件
+└── scripts/               # 构建脚本
+    └── generate-exports.js # CSS exports 自动生成
+```
+
+### 🔧 故障排除
+
+**Q: playground 中组件无法正常显示？**
+A: 确保已运行 `npm run build` 并检查 `playground/src/cesium-kit/` 目录是否存在
+
+**Q: CSS 样式不生效？**
+A: 检查是否正确导入样式文件：`import 'cesium-kit/styles/camera-control.css'`
+
+**Q: TypeScript 类型错误？**
+A: 重新构建项目：`npm run build`，确保类型声明文件是最新的
+
+**Q: 构建失败？**
+A: 检查 Node 版本 >= 18，删除 `node_modules` 和 `package-lock.json` 后重新安装
 
 ### Cesium 资源与底图（本地稳定预览）
 
@@ -98,9 +161,40 @@ npm run dev
 
 欢迎 PR 和 Issue！
 
-- 提交规范: 使用英语提交信息，示例: `feat: add new ellipse ripple options`
-- 分支模型: `main` 为稳定分支，`feat/*` 开发新特性，`fix/*` 修复问题。
-- 代码要求: 保持类型安全与可读性，尽量补充最小可复现示例。
+### 📚 开发文档
+
+- **[开发环境配置](DEVELOPMENT.md)** - 详细的开发环境搭建指南
+- **[贡献指南](CONTRIBUTING.md)** - 完整的贡献流程和代码规范
+
+### 🚀 快速贡献
+
+```bash
+# 1. Fork 并克隆仓库
+git clone https://github.com/your-username/cesium-kit.git
+cd cesium-kit
+
+# 2. 安装依赖并启动开发环境
+npm i && npm run play:install
+npm run dev:play
+
+# 3. 创建功能分支
+git checkout -b feat/your-feature-name
+
+# 4. 开发完成后提交 PR
+```
+
+### 📋 贡献规范
+
+- **提交规范**: 使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范
+- **分支模型**: `main` 为稳定分支，`feat/*` 开发新特性，`fix/*` 修复问题
+- **代码要求**: 保持类型安全与可读性，补充测试用例和文档
+- **测试验证**: 在 playground 中验证功能正常
+
+### 🔗 相关链接
+
+- [Issues](https://github.com/leongaooo/cesium-kit/issues) - Bug 报告和功能建议
+- [Discussions](https://github.com/leongaooo/cesium-kit/discussions) - 社区讨论
+- [Changelog](CHANGELOG.md) - 版本更新日志
 
 ---
 

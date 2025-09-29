@@ -1,66 +1,14 @@
 <template>
-    <div class="viewer-container" ref="viewerContainer"></div>
-    <div class="control-panel">
-      <div class="panel-header">
-        <h3>RippleMarker 测试面板</h3>
-      </div>
-
-      <div class="panel-section">
-        <h4>创建标记</h4>
-        <div class="form-group">
-          <label>经度:</label>
-          <input v-model="markerConfig.lon" type="number" step="0.001" />
-        </div>
-        <div class="form-group">
-          <label>纬度:</label>
-          <input v-model="markerConfig.lat" type="number" step="0.001" />
-        </div>
-        <div class="form-group">
-          <label>标签文字:</label>
-          <input v-model="markerConfig.labelText" placeholder="输入标签文字" />
-        </div>
-        <div class="form-group">
-          <label>颜色:</label>
-          <input v-model="markerConfig.color" type="color" />
-        </div>
-        <div class="form-group">
-          <label>标签颜色:</label>
-          <input v-model="markerConfig.labelColor" type="color" />
-        </div>
-        <button @click="addMarker" class="btn-primary">添加标记</button>
-      </div>
-
-      <div class="panel-section" v-if="currentMarker">
-        <h4>控制标记</h4>
-        <div class="button-group">
-          <button @click="showMarker" class="btn-success">显示</button>
-          <button @click="hideMarker" class="btn-warning">隐藏</button>
-          <button @click="removeMarker" class="btn-danger">删除</button>
-        </div>
-        <div class="form-group">
-          <label>
-            <input v-model="markerVisible" @change="toggleMarker" type="checkbox" />
-            可见性
-          </label>
-        </div>
-      </div>
-
-      <div class="panel-section">
-        <h4>点击事件</h4>
-        <div class="log-container">
-          <div v-for="(log, index) in clickLogs" :key="index" class="log-item">
-            {{ log }}
-          </div>
-        </div>
-        <button @click="clearLogs" class="btn-secondary">清空日志</button>
-      </div>
+    <div class="viewer-container" ref="viewerContainer">
+      <div id="camera-bar" class="camera-bar" ref="cameraBar"></div>
     </div>
   </template>
 
   <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount } from 'vue';
   import * as Cesium from 'cesium';
-  import { RippleMarker, ViewerClick, CameraMoveEvent } from "./index.js";
+  import { RippleMarker, CameraMoveEvent, createCameraControl } from "../cesium-kit/index";
+  import '../cesium-kit/styles/camera-control.css';
 
   const viewerContainer = ref<HTMLDivElement>();
   let viewer: Cesium.Viewer | null = null;
@@ -120,6 +68,23 @@
       }
     });
     const cameraMoveEvent = CameraMoveEvent(viewer);
+
+    // 创建相机控制组件，自动查找容器并添加
+    console.log('Creating camera control...');
+    console.log('Target container:', document.getElementById('camera-bar'));
+
+    const cameraControl = createCameraControl({
+      viewer,
+      zoomDistance: 500,
+      containerId: 'camera-bar', // 可选，指定容器ID
+      showCameraInfo: true, // 显示相机信息
+    });
+
+    console.log('Camera control created:', cameraControl);
+    console.log('Camera control container:', cameraControl.getContainer());
+
+    // 将相机控制实例保存到全局，方便调试
+    window['cameraControl'] = cameraControl;
 
 
     window['testCameraMoveEvent'] = ()=>{
@@ -270,10 +235,18 @@
     position: relative;
   }
 
-  .control-panel {
+  .camera-bar {
     position: absolute;
     top: 20px;
     right: 20px;
+    z-index: 1000;
+  }
+
+
+  .control-panel {
+    position: absolute;
+    top: 20px;
+    left: 20px;
     width: 300px;
     background: rgba(42, 42, 42, 0.9);
     color: white;

@@ -1,5 +1,103 @@
 import * as Cesium from 'cesium';
 
+// 创建自定义标签 Canvas
+function createLabelCanvas(label: NonNullable<RippleMarkerOptions['label']>): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+
+    // 设置字体
+    const font = label.font || '14px sans-serif';
+    ctx.font = font;
+
+    // 测量文字尺寸
+    const textMetrics = ctx.measureText(label.text!);
+    const textWidth = textMetrics.width;
+    const textHeight = parseInt(font) || 14;
+
+    // 计算背景板尺寸
+    const padding = label.backgroundPadding || { x: 8, y: 4 };
+    const borderRadius = label.backgroundCornerRadius || 4;
+    const borderWidth = label.backgroundBorderWidth || 1;
+
+    const canvasWidth = Math.max(textWidth + padding.x * 2, 40);
+    const canvasHeight = Math.max(textHeight + padding.y * 2, 20);
+
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+
+    // 重新设置字体（canvas 尺寸变化后需要重新设置）
+    ctx.font = font;
+
+    // 绘制圆角矩形背景
+    if (label.backgroundColor) {
+        ctx.fillStyle = label.backgroundColor;
+        ctx.beginPath();
+        ctx.moveTo(borderRadius, 0);
+        ctx.lineTo(canvasWidth - borderRadius, 0);
+        ctx.quadraticCurveTo(canvasWidth, 0, canvasWidth, borderRadius);
+        ctx.lineTo(canvasWidth, canvasHeight - borderRadius);
+        ctx.quadraticCurveTo(canvasWidth, canvasHeight, canvasWidth - borderRadius, canvasHeight);
+        ctx.lineTo(borderRadius, canvasHeight);
+        ctx.quadraticCurveTo(0, canvasHeight, 0, canvasHeight - borderRadius);
+        ctx.lineTo(0, borderRadius);
+        ctx.quadraticCurveTo(0, 0, borderRadius, 0);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    // 绘制边框
+    if (label.backgroundBorderColor && borderWidth > 0) {
+        ctx.strokeStyle = label.backgroundBorderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.beginPath();
+        ctx.moveTo(borderRadius, 0);
+        ctx.lineTo(canvasWidth - borderRadius, 0);
+        ctx.quadraticCurveTo(canvasWidth, 0, canvasWidth, borderRadius);
+        ctx.lineTo(canvasWidth, canvasHeight - borderRadius);
+        ctx.quadraticCurveTo(canvasWidth, canvasHeight, canvasWidth - borderRadius, canvasHeight);
+        ctx.lineTo(borderRadius, canvasHeight);
+        ctx.quadraticCurveTo(0, canvasHeight, 0, canvasHeight - borderRadius);
+        ctx.lineTo(0, borderRadius);
+        ctx.quadraticCurveTo(0, 0, borderRadius, 0);
+        ctx.closePath();
+        ctx.stroke();
+    }
+
+    // 绘制文字
+    ctx.fillStyle = label.fillColor || '#ffffff';
+
+    // 计算文字位置
+    let textX = canvasWidth / 2;
+    let textY = canvasHeight / 2;
+
+    if (label.textAlign === 'left') {
+        textX = padding.x;
+    } else if (label.textAlign === 'right') {
+        textX = canvasWidth - padding.x;
+    }
+
+    if (label.verticalAlign === 'top') {
+        textY = padding.y + textHeight;
+    } else if (label.verticalAlign === 'bottom') {
+        textY = canvasHeight - padding.y;
+    }
+
+    ctx.textAlign = label.textAlign === 'left' ? 'left' : label.textAlign === 'right' ? 'right' : 'center';
+    ctx.textBaseline = label.verticalAlign === 'top' ? 'top' : label.verticalAlign === 'bottom' ? 'bottom' : 'middle';
+
+    // 绘制文字描边
+    if (label.outlineColor && label.outlineWidth) {
+        ctx.strokeStyle = label.outlineColor;
+        ctx.lineWidth = label.outlineWidth;
+        ctx.strokeText(label.text!, textX, textY);
+    }
+
+    // 绘制文字填充
+    ctx.fillText(label.text!, textX, textY);
+
+    return canvas;
+}
+
 export interface RippleMarkerOptions {
     lon: number;
     lat: number;
@@ -23,6 +121,14 @@ export interface RippleMarkerOptions {
         pixelOffset?: { x: number; y: number }; // 像素偏移
         scale?: number; // 文字缩放
         show?: boolean; // 是否显示标签
+        // 新增背景板配置
+        backgroundColor?: string; // 背景颜色
+        backgroundBorderColor?: string; // 背景边框颜色
+        backgroundBorderWidth?: number; // 背景边框宽度
+        backgroundPadding?: { x: number; y: number }; // 背景内边距
+        backgroundCornerRadius?: number; // 背景圆角半径
+        textAlign?: 'left' | 'center' | 'right'; // 文字对齐方式
+        verticalAlign?: 'top' | 'middle' | 'bottom'; // 垂直对齐方式
     };
     onClick?: (data: any, position: { lon: number; lat: number }) => void; // 点击回调
 }
@@ -83,6 +189,9 @@ export function RippleMarker(
     const floatPeriodMs = 2000; // 浮动周期（毫秒）
     const baseHeight = height + surfaceHeight; // 统一控制三棱锥与波纹基准高度
 
+    // 生成唯一的 marker ID
+    const markerId = id || `ripple-marker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     // 基础位置（金字塔底部中心点）已不需要单独变量，仅计算尖端位置
     const tipPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight); // 尖端位置
 
@@ -123,6 +232,7 @@ export function RippleMarker(
         );
 
         return viewer.entities.add({
+            id: `${markerId}_wave_${index}`,
             position: tipPosition,
             ellipse: {
                 semiMinorAxis: radiusProperty,
@@ -141,6 +251,7 @@ export function RippleMarker(
         const v2deg = vertexDegrees[(i + 1) % 3];
         entities.push(
             viewer.entities.add({
+                id: `${markerId}_face_${i}`,
                 polygon: {
                     hierarchy: new Cesium.CallbackProperty((_time) => {
                         const t = Date.now();
@@ -175,41 +286,122 @@ export function RippleMarker(
         );
     }
 
-    // 创建标签实体
+    // 创建标签实体 - 固定在椎体上方
     let labelEntity: Cesium.Entity | null = null;
     if (label && label.text && label.show !== false) {
-        const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight + pyramidHeight + 100);
-        labelEntity = viewer.entities.add({
-            id: id ? `${id}_label` : undefined,
-            position: labelPosition,
-            label: {
-                text: label.text,
-                font: label.font || '14px sans-serif',
-                fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
-                outlineColor: label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK,
-                outlineWidth: label.outlineWidth || 2,
-                pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -45),
-                scale: label.scale || 1.0,
-                style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-                verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-            },
-        });
+        // 计算标签位置 - 固定在椎体尖端上方
+        const labelHeight = baseHeight + pyramidHeight + 200; // 在椎体尖端上方200米
+        const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, labelHeight);
+
+        // 如果有背景板配置，使用 Canvas 创建自定义标签
+        if (label.backgroundColor || label.backgroundBorderColor || label.backgroundCornerRadius) {
+            const canvas = createLabelCanvas(label);
+            labelEntity = viewer.entities.add({
+                id: `${markerId}_label`,
+                position: labelPosition,
+                billboard: {
+                    image: canvas,
+                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+                    scale: label.scale || 1.0,
+                    verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                },
+            });
+        } else {
+            // 使用原生 Label
+            const backgroundColor = label.backgroundColor ? Cesium.Color.fromCssColorString(label.backgroundColor) : undefined;
+            const backgroundBorderColor = label.backgroundBorderColor ? Cesium.Color.fromCssColorString(label.backgroundBorderColor) : undefined;
+
+            // 计算文字对齐方式
+            let horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
+            let verticalOrigin = Cesium.VerticalOrigin.BOTTOM;
+
+            if (label.textAlign === 'left') horizontalOrigin = Cesium.HorizontalOrigin.LEFT;
+            else if (label.textAlign === 'right') horizontalOrigin = Cesium.HorizontalOrigin.RIGHT;
+
+            if (label.verticalAlign === 'top') verticalOrigin = Cesium.VerticalOrigin.TOP;
+            else if (label.verticalAlign === 'middle') verticalOrigin = Cesium.VerticalOrigin.CENTER;
+
+            labelEntity = viewer.entities.add({
+                id: `${markerId}_label`,
+                position: labelPosition,
+                label: {
+                    text: label.text,
+                    font: label.font || '14px sans-serif',
+                    fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
+                    outlineColor: backgroundBorderColor || (label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK),
+                    outlineWidth: label.backgroundBorderWidth || label.outlineWidth || 2,
+                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+                    scale: label.scale || 1.0,
+                    style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+                    horizontalOrigin: horizontalOrigin,
+                    verticalOrigin: verticalOrigin,
+                    // 背景板配置
+                    backgroundColor: backgroundColor,
+                    backgroundPadding: label.backgroundPadding ? new Cesium.Cartesian2(label.backgroundPadding.x, label.backgroundPadding.y) : new Cesium.Cartesian2(8, 4),
+                    // 确保标签始终可见
+                    disableDepthTestDistance: Number.POSITIVE_INFINITY,
+                },
+            });
+        }
         entities.push(labelEntity);
     }
 
-    // 创建点击事件处理器
+    // 创建点击事件处理器 - 使用全局事件处理器支持多个 marker
     let clickHandler: (() => void) | null = null;
     if (onClick) {
-        viewer.screenSpaceEventHandler.setInputAction((event: any) => {
-            const pickedObject = viewer.scene.pick(event.position);
-            if (pickedObject && pickedObject.id && entities.includes(pickedObject.id)) {
-                onClick(data, { lon, lat });
-            }
-        }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        // 初始化全局事件处理器（如果还没有的话）
+        if (!(viewer as any)._rippleMarkerGlobalHandler) {
+            (viewer as any)._rippleMarkerGlobalHandler = (event: any) => {
+                const pickedObject = viewer.scene.pick(event.position);
+
+                if (pickedObject && pickedObject.id) {
+                    const pickedEntity = pickedObject.id;
+                    const pickedId = pickedEntity.id;
+
+                    // 查找所有注册的 marker
+                    const markers = (viewer as any)._rippleMarkers || [];
+                    for (const marker of markers) {
+                        const isCurrentMarker = marker.entities.some((entity: any) => entity.id === pickedId);
+                        if (isCurrentMarker && marker.onClick) {
+                            marker.onClick(marker.data, { lon: marker.lon, lat: marker.lat });
+                            break; // 只触发第一个匹配的 marker
+                        }
+                    }
+                }
+            };
+
+            // 添加全局点击事件监听器
+            viewer.screenSpaceEventHandler.setInputAction(
+                (viewer as any)._rippleMarkerGlobalHandler,
+                Cesium.ScreenSpaceEventType.LEFT_CLICK
+            );
+        }
+
+        // 将当前 marker 注册到全局列表
+        if (!(viewer as any)._rippleMarkers) {
+            (viewer as any)._rippleMarkers = [];
+        }
+
+        const markerInfo = {
+            markerId,
+            onClick,
+            data,
+            lon,
+            lat,
+            entities
+        };
+
+        (viewer as any)._rippleMarkers.push(markerInfo);
 
         // 创建清理函数
         clickHandler = () => {
-            viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+            // 从全局列表中移除当前 marker
+            const markers = (viewer as any)._rippleMarkers || [];
+            const index = markers.findIndex((m: any) => m.markerId === markerId);
+            if (index !== -1) {
+                markers.splice(index, 1);
+            }
         };
     }
 

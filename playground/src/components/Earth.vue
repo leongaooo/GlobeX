@@ -7,7 +7,7 @@
   <script setup lang="ts">
   import { ref, onMounted, onBeforeUnmount } from 'vue';
   import * as Cesium from 'cesium';
-  import { RippleMarker, CameraMoveEvent, createCameraControl } from "../cesium-kit/index";
+  import { RippleMarker, CameraMoveEvent, createCameraControl,ViewerClick } from "../cesium-kit/index";
   import '../cesium-kit/styles/camera-control.css';
 
   const viewerContainer = ref<HTMLDivElement>();
@@ -83,6 +83,56 @@
     console.log('Camera control created:', cameraControl);
     console.log('Camera control container:', cameraControl.getContainer());
 
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(107.47989129086449, 44.06166875558195, 1000),
+      duration: 1
+    });
+    [44.06166875558195, 44.15558195,44.25558195,44.35558195,44.45558195,44.55558195,44.65558195,44.75558195,44.85558195,44.95558195].forEach(lat=>{
+      const marker = RippleMarker(viewer, {
+        lon: 107.47989129086449,
+        lat: lat,
+        data: {
+          name: "北京市" + lat,
+        },
+        label: {
+          text: "北京市" + lat,
+          font: "18px sans-serif",
+          fillColor: "#ffffff",
+          backgroundColor: "rgba(0, 0, 0, 0.8)",
+          backgroundBorderColor: "#ffffff",
+          backgroundCornerRadius: 20,
+          backgroundBorderWidth: 1,
+          backgroundPadding: { x: 12, y: 6 },
+          textAlign: "center",
+          verticalAlign: "middle",
+        },
+        onClick: (data, position) => {
+          console.log("点击了标记:", data);
+          },
+      });
+    });
+    // const viewerClick = ViewerClick(viewer,(lon,lat,event)=>{
+    //   console.log('ViewerClick:', lon, lat, event);
+    //   const marker = RippleMarker(viewer, {
+    //     lon: lon,
+    //     lat: lat,
+    //     label: {
+    //       text: "点击标记",
+    //       font: "16px sans-serif",
+    //       fillColor: "#ffffff",
+    //       backgroundColor: "rgba(255, 0, 0, 0.8)",
+    //       backgroundBorderColor: "#ffffff",
+    //       backgroundBorderWidth: 1,
+    //       backgroundPadding: { x: 12, y: 6 },
+    //       textAlign: "center",
+    //       verticalAlign: "middle",
+    //     },
+    //     onClick: (data, position) => {
+    //       console.log("点击了标记:", data);
+    //     },
+    //   });
+    // });
+
     // 将相机控制实例保存到全局，方便调试
     window['cameraControl'] = cameraControl;
 
@@ -96,7 +146,7 @@
     viewer.scene.globe.enableLighting = true;
 
     // 添加一些交互示例
-    setupInteractions(viewer);
+    // setupInteractions(viewer);
   });
 
   // 测试方法
@@ -139,7 +189,14 @@
         outlineWidth: 2,
         pixelOffset: { x: 0, y: -50 },
         scale: 1.0,
-        show: true
+        show: true,
+        // 新增背景板配置
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        backgroundBorderColor: '#ffffff',
+        backgroundBorderWidth: 1,
+        backgroundPadding: { x: 12, y: 6 },
+        textAlign: 'center',
+        verticalAlign: 'middle',
       },
       onClick: (data, position) => {
         const log = `点击标记: ${data.name} (${position.lon.toFixed(4)}, ${position.lat.toFixed(4)})`;

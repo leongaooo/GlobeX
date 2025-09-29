@@ -58,6 +58,14 @@ const marker = RippleMarker(viewer, {
     pixelOffset: { x: 0, y: -50 },
     scale: 1.2,
     show: true,
+    // 背景板配置
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    backgroundBorderColor: "#ffffff",
+    backgroundBorderWidth: 1,
+    backgroundPadding: { x: 12, y: 6 },
+    backgroundCornerRadius: 8,
+    textAlign: "center",
+    verticalAlign: "middle",
   },
   onClick: (data, position) => {
     console.log("点击了:", data.name);
@@ -147,6 +155,32 @@ markers.forEach((marker) => marker.remove());
 #### 标签配置
 
 - **label**?: `LabelOptions` - 标签配置对象
+
+#### LabelOptions
+
+**基础配置:**
+
+- **text**?: `string` - 标签文字
+- **font**?: `string` - 字体样式，如 `'14px sans-serif'`，默认 `'14px sans-serif'`
+- **fillColor**?: `string` - 文字颜色，CSS 颜色字符串，默认 `'#ffffff'`
+- **outlineColor**?: `string` - 描边颜色，CSS 颜色字符串，默认 `'#000000'`
+- **outlineWidth**?: `number` - 描边宽度，默认 `2`
+- **pixelOffset**?: `{ x: number; y: number }` - 像素偏移，默认 `{ x: 0, y: -50 }`
+- **scale**?: `number` - 文字缩放，默认 `1.0`
+- **show**?: `boolean` - 是否显示标签，默认 `true`
+
+**背景板配置:**
+
+- **backgroundColor**?: `string` - 背景颜色，CSS 颜色字符串
+- **backgroundBorderColor**?: `string` - 背景边框颜色，CSS 颜色字符串
+- **backgroundBorderWidth**?: `number` - 背景边框宽度，默认 `1`
+- **backgroundPadding**?: `{ x: number; y: number }` - 背景内边距，默认 `{ x: 8, y: 4 }`
+- **backgroundCornerRadius**?: `number` - 背景圆角半径，默认 `4`
+
+**对齐配置:**
+
+- **textAlign**?: `'left' | 'center' | 'right'` - 文字水平对齐方式，默认 `'center'`
+- **verticalAlign**?: `'top' | 'middle' | 'bottom'` - 文字垂直对齐方式，默认 `'bottom'`
 
 #### 事件配置
 

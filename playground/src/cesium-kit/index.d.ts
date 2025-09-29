@@ -26,6 +26,16 @@ interface RippleMarkerOptions {
         };
         scale?: number;
         show?: boolean;
+        backgroundColor?: string;
+        backgroundBorderColor?: string;
+        backgroundBorderWidth?: number;
+        backgroundPadding?: {
+            x: number;
+            y: number;
+        };
+        backgroundCornerRadius?: number;
+        textAlign?: 'left' | 'center' | 'right';
+        verticalAlign?: 'top' | 'middle' | 'bottom';
     };
     onClick?: (data: any, position: {
         lon: number;

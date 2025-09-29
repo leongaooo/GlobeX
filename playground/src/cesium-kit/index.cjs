@@ -40,6 +40,76 @@ module.exports = __toCommonJS(index_exports);
 
 // src/RippleMarker/index.ts
 var Cesium = __toESM(require("cesium"), 1);
+function createLabelCanvas(label) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const font = label.font || "14px sans-serif";
+  ctx.font = font;
+  const textMetrics = ctx.measureText(label.text);
+  const textWidth = textMetrics.width;
+  const textHeight = parseInt(font) || 14;
+  const padding = label.backgroundPadding || { x: 8, y: 4 };
+  const borderRadius = label.backgroundCornerRadius || 4;
+  const borderWidth = label.backgroundBorderWidth || 1;
+  const canvasWidth = Math.max(textWidth + padding.x * 2, 40);
+  const canvasHeight = Math.max(textHeight + padding.y * 2, 20);
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
+  ctx.font = font;
+  if (label.backgroundColor) {
+    ctx.fillStyle = label.backgroundColor;
+    ctx.beginPath();
+    ctx.moveTo(borderRadius, 0);
+    ctx.lineTo(canvasWidth - borderRadius, 0);
+    ctx.quadraticCurveTo(canvasWidth, 0, canvasWidth, borderRadius);
+    ctx.lineTo(canvasWidth, canvasHeight - borderRadius);
+    ctx.quadraticCurveTo(canvasWidth, canvasHeight, canvasWidth - borderRadius, canvasHeight);
+    ctx.lineTo(borderRadius, canvasHeight);
+    ctx.quadraticCurveTo(0, canvasHeight, 0, canvasHeight - borderRadius);
+    ctx.lineTo(0, borderRadius);
+    ctx.quadraticCurveTo(0, 0, borderRadius, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  if (label.backgroundBorderColor && borderWidth > 0) {
+    ctx.strokeStyle = label.backgroundBorderColor;
+    ctx.lineWidth = borderWidth;
+    ctx.beginPath();
+    ctx.moveTo(borderRadius, 0);
+    ctx.lineTo(canvasWidth - borderRadius, 0);
+    ctx.quadraticCurveTo(canvasWidth, 0, canvasWidth, borderRadius);
+    ctx.lineTo(canvasWidth, canvasHeight - borderRadius);
+    ctx.quadraticCurveTo(canvasWidth, canvasHeight, canvasWidth - borderRadius, canvasHeight);
+    ctx.lineTo(borderRadius, canvasHeight);
+    ctx.quadraticCurveTo(0, canvasHeight, 0, canvasHeight - borderRadius);
+    ctx.lineTo(0, borderRadius);
+    ctx.quadraticCurveTo(0, 0, borderRadius, 0);
+    ctx.closePath();
+    ctx.stroke();
+  }
+  ctx.fillStyle = label.fillColor || "#ffffff";
+  let textX = canvasWidth / 2;
+  let textY = canvasHeight / 2;
+  if (label.textAlign === "left") {
+    textX = padding.x;
+  } else if (label.textAlign === "right") {
+    textX = canvasWidth - padding.x;
+  }
+  if (label.verticalAlign === "top") {
+    textY = padding.y + textHeight;
+  } else if (label.verticalAlign === "bottom") {
+    textY = canvasHeight - padding.y;
+  }
+  ctx.textAlign = label.textAlign === "left" ? "left" : label.textAlign === "right" ? "right" : "center";
+  ctx.textBaseline = label.verticalAlign === "top" ? "top" : label.verticalAlign === "bottom" ? "bottom" : "middle";
+  if (label.outlineColor && label.outlineWidth) {
+    ctx.strokeStyle = label.outlineColor;
+    ctx.lineWidth = label.outlineWidth;
+    ctx.strokeText(label.text, textX, textY);
+  }
+  ctx.fillText(label.text, textX, textY);
+  return canvas;
+}
 function RippleMarker(viewer, {
   lon,
   lat,
@@ -67,6 +137,7 @@ function RippleMarker(viewer, {
   const floatAmplitude = pyramidHeight * 0.2;
   const floatPeriodMs = 2e3;
   const baseHeight = height + surfaceHeight;
+  const markerId = id || `ripple-marker-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const tipPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight);
   const vertexDegrees = [];
   for (let i = 0; i < 3; i++) {
@@ -96,6 +167,7 @@ function RippleMarker(viewer, {
       }, false)
     );
     return viewer.entities.add({
+      id: `${markerId}_wave_${index}`,
       position: tipPosition,
       ellipse: {
         semiMinorAxis: radiusProperty,
@@ -112,6 +184,7 @@ function RippleMarker(viewer, {
     const v2deg = vertexDegrees[(i + 1) % 3];
     entities.push(
       viewer.entities.add({
+        id: `${markerId}_face_${i}`,
         polygon: {
           hierarchy: new Cesium.CallbackProperty((_time) => {
             const t = Date.now();
@@ -143,34 +216,95 @@ function RippleMarker(viewer, {
   }
   let labelEntity = null;
   if (label && label.text && label.show !== false) {
-    const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, baseHeight + pyramidHeight + 100);
-    labelEntity = viewer.entities.add({
-      id: id ? `${id}_label` : void 0,
-      position: labelPosition,
-      label: {
-        text: label.text,
-        font: label.font || "14px sans-serif",
-        fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
-        outlineColor: label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK,
-        outlineWidth: label.outlineWidth || 2,
-        pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -45),
-        scale: label.scale || 1,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM
-      }
-    });
+    const labelHeight = baseHeight + pyramidHeight + 200;
+    const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, labelHeight);
+    if (label.backgroundColor || label.backgroundBorderColor || label.backgroundCornerRadius) {
+      const canvas = createLabelCanvas(label);
+      labelEntity = viewer.entities.add({
+        id: `${markerId}_label`,
+        position: labelPosition,
+        billboard: {
+          image: canvas,
+          pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+          scale: label.scale || 1,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+    } else {
+      const backgroundColor = label.backgroundColor ? Cesium.Color.fromCssColorString(label.backgroundColor) : void 0;
+      const backgroundBorderColor = label.backgroundBorderColor ? Cesium.Color.fromCssColorString(label.backgroundBorderColor) : void 0;
+      let horizontalOrigin = Cesium.HorizontalOrigin.CENTER;
+      let verticalOrigin = Cesium.VerticalOrigin.BOTTOM;
+      if (label.textAlign === "left") horizontalOrigin = Cesium.HorizontalOrigin.LEFT;
+      else if (label.textAlign === "right") horizontalOrigin = Cesium.HorizontalOrigin.RIGHT;
+      if (label.verticalAlign === "top") verticalOrigin = Cesium.VerticalOrigin.TOP;
+      else if (label.verticalAlign === "middle") verticalOrigin = Cesium.VerticalOrigin.CENTER;
+      labelEntity = viewer.entities.add({
+        id: `${markerId}_label`,
+        position: labelPosition,
+        label: {
+          text: label.text,
+          font: label.font || "14px sans-serif",
+          fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
+          outlineColor: backgroundBorderColor || (label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK),
+          outlineWidth: label.backgroundBorderWidth || label.outlineWidth || 2,
+          pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+          scale: label.scale || 1,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          horizontalOrigin,
+          verticalOrigin,
+          // 背景板配置
+          backgroundColor,
+          backgroundPadding: label.backgroundPadding ? new Cesium.Cartesian2(label.backgroundPadding.x, label.backgroundPadding.y) : new Cesium.Cartesian2(8, 4),
+          // 确保标签始终可见
+          disableDepthTestDistance: Number.POSITIVE_INFINITY
+        }
+      });
+    }
     entities.push(labelEntity);
   }
   let clickHandler = null;
   if (onClick) {
-    viewer.screenSpaceEventHandler.setInputAction((event) => {
-      const pickedObject = viewer.scene.pick(event.position);
-      if (pickedObject && pickedObject.id && entities.includes(pickedObject.id)) {
-        onClick(data, { lon, lat });
-      }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    if (!viewer._rippleMarkerGlobalHandler) {
+      viewer._rippleMarkerGlobalHandler = (event) => {
+        const pickedObject = viewer.scene.pick(event.position);
+        if (pickedObject && pickedObject.id) {
+          const pickedEntity = pickedObject.id;
+          const pickedId = pickedEntity.id;
+          const markers = viewer._rippleMarkers || [];
+          for (const marker of markers) {
+            const isCurrentMarker = marker.entities.some((entity) => entity.id === pickedId);
+            if (isCurrentMarker && marker.onClick) {
+              marker.onClick(marker.data, { lon: marker.lon, lat: marker.lat });
+              break;
+            }
+          }
+        }
+      };
+      viewer.screenSpaceEventHandler.setInputAction(
+        viewer._rippleMarkerGlobalHandler,
+        Cesium.ScreenSpaceEventType.LEFT_CLICK
+      );
+    }
+    if (!viewer._rippleMarkers) {
+      viewer._rippleMarkers = [];
+    }
+    const markerInfo = {
+      markerId,
+      onClick,
+      data,
+      lon,
+      lat,
+      entities
+    };
+    viewer._rippleMarkers.push(markerInfo);
     clickHandler = () => {
-      viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+      const markers = viewer._rippleMarkers || [];
+      const index = markers.findIndex((m) => m.markerId === markerId);
+      if (index !== -1) {
+        markers.splice(index, 1);
+      }
     };
   }
   let alive = true;
@@ -221,12 +355,24 @@ var Cesium2 = __toESM(require("cesium"), 1);
 function ViewerClick(viewer, callback) {
   const handler = viewer.screenSpaceEventHandler;
   handler.setInputAction((event) => {
-    const pickedPosition = viewer.scene.pickPosition(event.position);
+    const pickedObject = viewer.scene.pick(event.position);
+    if (pickedObject && pickedObject.id) {
+      return;
+    }
+    let pickedPosition = viewer.scene.pickPosition(event.position);
+    if (!pickedPosition) {
+      const ellipsoidPosition = viewer.camera.pickEllipsoid(event.position, viewer.scene.globe.ellipsoid);
+      if (ellipsoidPosition) {
+        pickedPosition = ellipsoidPosition;
+      }
+    }
     if (pickedPosition) {
       const cartographic = Cesium2.Cartographic.fromCartesian(pickedPosition);
       const lon = Cesium2.Math.toDegrees(cartographic.longitude);
       const lat = Cesium2.Math.toDegrees(cartographic.latitude);
       callback(lon, lat, event);
+    } else {
+      console.warn("ViewerClick: \u65E0\u6CD5\u83B7\u53D6\u70B9\u51FB\u4F4D\u7F6E\u7684\u7ECF\u7EAC\u5EA6");
     }
   }, Cesium2.ScreenSpaceEventType.LEFT_CLICK);
   return () => {

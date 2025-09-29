@@ -1,6 +1,6 @@
 {
   "name": "cesium-kit",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Cesium utility components. RippleMarker | ViewerClick | CameraMoveEvent.",
   "type": "module",
   "main": "dist/index.js",
@@ -16,14 +16,16 @@
     "./styles/camera-control.css": "./dist/styles/camera-control.css"
   },
   "scripts": {
-    "build": "node scripts/generate-exports.js && tsup && cpy \"src/styles/**/*.css\" dist/styles --parents && cpy \"dist/**/*\" playground/src/cesium-kit --parents",
+    "build": "tsx scripts/generate-exports.ts && tsup && cpy \"src/styles/**/*.css\" dist/styles --parents && cpy \"dist/**/*\" playground/src/cesium-kit --parents",
     "dev": "tsup src/index.ts --watch --dts --format esm,cjs",
     "clean": "rimraf dist",
     "pack": " npm version patch --no-git-tag-version && npm run build && npm pack",
     "prepublishOnly": "npm run build",
-    "dev:play": "concurrently \"npm:dev\" \"npm:play:start\"",
+    "dev:play": "concurrently \"npm:build\" \"npm:play:start\"",
     "play:start": "npm --prefix playground run dev",
-    "play:install": "npm --prefix playground i"
+    "play:install": "npm --prefix playground i",
+    "pb": "npm publish --access public",
+    "upv": "npm version patch --no-git-tag-version"
   },
   "repository": {
     "type": "git",
@@ -66,6 +68,7 @@
     "cpy-cli": "^6.0.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.2"
   },
   "peerDependencies": {

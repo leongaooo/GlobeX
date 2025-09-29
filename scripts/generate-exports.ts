@@ -7,13 +7,23 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// 定义类型接口
+interface PackageJson {
+    exports?: Record<string, string | Record<string, string>>;
+    [key: string]: any;
+}
+
+interface CssExports {
+    [key: string]: string;
+}
+
 // 读取 package.json
 const packageJsonPath = path.join(__dirname, '..', 'package.json');
-const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+const packageJson: PackageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 // 扫描 src/styles 目录中的 CSS 文件
 const stylesDir = path.join(__dirname, '..', 'src', 'styles');
-const cssFiles = [];
+const cssFiles: string[] = [];
 
 if (fs.existsSync(stylesDir)) {
     const files = fs.readdirSync(stylesDir);
@@ -25,7 +35,7 @@ if (fs.existsSync(stylesDir)) {
 }
 
 // 生成 CSS exports 映射
-const cssExports = {};
+const cssExports: CssExports = {};
 cssFiles.forEach(file => {
     const exportKey = `./styles/${file}`;
     const exportValue = `./dist/styles/${file}`;
@@ -35,7 +45,7 @@ cssFiles.forEach(file => {
 // 更新 package.json 的 exports 字段
 // 保留现有的非 CSS exports
 const existingExports = packageJson.exports || {};
-const nonCssExports = {};
+const nonCssExports: Record<string, string | Record<string, string>> = {};
 
 // 分离非 CSS 的 exports
 Object.keys(existingExports).forEach(key => {

@@ -134,7 +134,9 @@
     // });
 
     // 将相机控制实例保存到全局，方便调试
-    window['cameraControl'] = cameraControl;
+    window['cameraControlClose'] = function(){
+      cameraControl.destroy();
+    };
 
 
     window['testCameraMoveEvent'] = ()=>{

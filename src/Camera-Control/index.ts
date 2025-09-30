@@ -31,6 +31,8 @@ export class CameraControl {
   private viewer: Cesium.Viewer;
   private zoomDistance: number;
   private zoomSliderRef: HTMLElement | null = null;
+  private cameraStateUpdateInterval: null | number = null;
+  private isDestroyed: boolean = false;
 
   constructor(options: CameraControlOptions) {
     this.viewer = options.viewer;
@@ -58,10 +60,15 @@ export class CameraControl {
 
   // 公共方法
   public destroy(): void {
+    if (this.isDestroyed) return;
+
+    this.isDestroyed = true;
     document.removeEventListener('mousemove', this.handleMouseMove);
     document.removeEventListener('mouseup', this.handleMouseUp);
     this.stopAutoZoom();
-    if (this.container.parentNode) {
+    this.stopCameraStateUpdate();
+
+    if (this.container && this.container.parentNode) {
       this.container.remove();
     }
   }
@@ -451,25 +458,34 @@ export class CameraControl {
   }
 
   private panCamera(direction: 'down' | 'left' | 'right' | 'up'): void {
-    const camera = this.viewer.camera;
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot pan camera, viewer is invalid');
+      return;
+    }
 
-    switch (direction) {
-      case 'down': {
-        camera.moveDown(1000);
-        break;
+    try {
+      const camera = this.viewer.camera;
+
+      switch (direction) {
+        case 'down': {
+          camera.moveDown(1000);
+          break;
+        }
+        case 'left': {
+          camera.moveLeft(1000);
+          break;
+        }
+        case 'right': {
+          camera.moveRight(1000);
+          break;
+        }
+        case 'up': {
+          camera.moveUp(1000);
+          break;
+        }
       }
-      case 'left': {
-        camera.moveLeft(1000);
-        break;
-      }
-      case 'right': {
-        camera.moveRight(1000);
-        break;
-      }
-      case 'up': {
-        camera.moveUp(1000);
-        break;
-      }
+    } catch (error) {
+      console.warn('CameraControl: Failed to pan camera:', error);
     }
   }
 
@@ -490,48 +506,66 @@ export class CameraControl {
   }
 
   private resetToNorth(): void {
-    this.viewer.camera.setView({
-      orientation: {
-        heading: 0,
-        pitch: this.viewer.camera.pitch,
-        roll: 0,
-      },
-    });
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot reset to north, viewer is invalid');
+      return;
+    }
+
+    try {
+      this.viewer.camera.setView({
+        orientation: {
+          heading: 0,
+          pitch: this.viewer.camera.pitch,
+          roll: 0,
+        },
+      });
+    } catch (error) {
+      console.warn('CameraControl: Failed to reset to north:', error);
+    }
   }
 
   private rotateCamera(direction: 'down' | 'left' | 'right' | 'up'): void {
-    const currentHeading = this.viewer.camera.heading;
-    const currentPitch = this.viewer.camera.pitch;
-
-    let newHeading = currentHeading;
-    let newPitch = currentPitch;
-
-    switch (direction) {
-      case 'down': {
-        newPitch = Math.min(newPitch + 0.1, Math.PI / 2);
-        break;
-      }
-      case 'left': {
-        newHeading = currentHeading - 0.1;
-        break;
-      }
-      case 'right': {
-        newHeading = currentHeading + 0.1;
-        break;
-      }
-      case 'up': {
-        newPitch = Math.max(newPitch - 0.1, -Math.PI / 2);
-        break;
-      }
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot rotate camera, viewer is invalid');
+      return;
     }
 
-    this.viewer.camera.setView({
-      orientation: {
-        heading: newHeading,
-        pitch: newPitch,
-        roll: this.viewer.camera.roll,
-      },
-    });
+    try {
+      const currentHeading = this.viewer.camera.heading;
+      const currentPitch = this.viewer.camera.pitch;
+
+      let newHeading = currentHeading;
+      let newPitch = currentPitch;
+
+      switch (direction) {
+        case 'down': {
+          newPitch = Math.min(newPitch + 0.1, Math.PI / 2);
+          break;
+        }
+        case 'left': {
+          newHeading = currentHeading - 0.1;
+          break;
+        }
+        case 'right': {
+          newHeading = currentHeading + 0.1;
+          break;
+        }
+        case 'up': {
+          newPitch = Math.max(newPitch - 0.1, -Math.PI / 2);
+          break;
+        }
+      }
+
+      this.viewer.camera.setView({
+        orientation: {
+          heading: newHeading,
+          pitch: newPitch,
+          roll: this.viewer.camera.roll,
+        },
+      });
+    } catch (error) {
+      console.warn('CameraControl: Failed to rotate camera:', error);
+    }
   }
 
   private setupEventListeners(): void {
@@ -540,21 +574,30 @@ export class CameraControl {
   }
 
   private setZoomLevel(level: number): void {
-    const offset = (level - 50) * 100 + this.sliderOffset * 100;
-    const targetHeight = this.baseHeight + offset;
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot set zoom level, viewer is invalid');
+      return;
+    }
 
-    this.viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(
-        this.cameraState.longitude,
-        this.cameraState.latitude,
-        targetHeight,
-      ),
-      orientation: {
-        heading: this.viewer.camera.heading,
-        pitch: this.viewer.camera.pitch,
-        roll: this.viewer.camera.roll,
-      },
-    });
+    try {
+      const offset = (level - 50) * 100 + this.sliderOffset * 100;
+      const targetHeight = this.baseHeight + offset;
+
+      this.viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(
+          this.cameraState.longitude,
+          this.cameraState.latitude,
+          targetHeight,
+        ),
+        orientation: {
+          heading: this.viewer.camera.heading,
+          pitch: this.viewer.camera.pitch,
+          roll: this.viewer.camera.roll,
+        },
+      });
+    } catch (error) {
+      console.warn('CameraControl: Failed to set zoom level:', error);
+    }
   }
 
   private startAutoZoom(direction: 'in' | 'out'): void {
@@ -563,16 +606,38 @@ export class CameraControl {
     }
 
     this.autoZoomInterval = window.setInterval(() => {
-      if (direction === 'in') {
-        this.viewer.camera.zoomIn(this.zoomDistance);
-      } else {
-        this.viewer.camera.zoomOut(this.zoomDistance);
+      if (!this.isViewerValid()) {
+        console.warn('CameraControl: Auto zoom stopped, viewer is invalid');
+        this.stopAutoZoom();
+        return;
+      }
+
+      try {
+        if (direction === 'in') {
+          this.viewer.camera.zoomIn(this.zoomDistance);
+        } else {
+          this.viewer.camera.zoomOut(this.zoomDistance);
+        }
+      } catch (error) {
+        console.warn('CameraControl: Auto zoom failed:', error);
+        this.stopAutoZoom();
       }
     }, 16);
   }
 
   private startCameraStateUpdate(): void {
-    setInterval(() => {
+    this.cameraStateUpdateInterval = window.setInterval(() => {
+      if (this.isDestroyed) {
+        this.stopCameraStateUpdate();
+        return;
+      }
+
+      if (!this.isViewerValid()) {
+        console.warn('CameraControl: Viewer is no longer valid, destroying component');
+        this.destroy();
+        return;
+      }
+
       this.updateCameraState();
       this.updateUI();
     }, 100);
@@ -585,18 +650,56 @@ export class CameraControl {
     }
   }
 
-  private updateCameraState(): void {
-    const position = this.viewer.camera.position;
-    const cartographic = Cesium.Cartographic.fromCartesian(position);
+  private stopCameraStateUpdate(): void {
+    if (this.cameraStateUpdateInterval) {
+      clearInterval(this.cameraStateUpdateInterval);
+      this.cameraStateUpdateInterval = null;
+    }
+  }
 
-    this.cameraState = {
-      longitude: Cesium.Math.toDegrees(cartographic.longitude),
-      latitude: Cesium.Math.toDegrees(cartographic.latitude),
-      height: cartographic.height,
-      heading: this.viewer.camera.heading,
-      pitch: this.viewer.camera.pitch,
-      roll: this.viewer.camera.roll,
-    };
+  private isViewerValid(): boolean {
+    try {
+      // 检查 viewer 是否存在且有效
+      if (!this.viewer) return false;
+
+      // 检查 viewer.scene 是否存在
+      if (!this.viewer.scene) return false;
+
+      // 检查 viewer.camera 是否存在
+      if (!this.viewer.camera) return false;
+
+      // 尝试访问 camera.position，如果抛出异常说明 viewer 已失效
+      const position = this.viewer.camera.position;
+      if (!position) return false;
+
+      return true;
+    } catch (error) {
+      console.warn('CameraControl: Viewer validation failed:', error);
+      return false;
+    }
+  }
+
+  private updateCameraState(): void {
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot update camera state, viewer is invalid');
+      return;
+    }
+
+    try {
+      const position = this.viewer.camera.position;
+      const cartographic = Cesium.Cartographic.fromCartesian(position);
+
+      this.cameraState = {
+        longitude: Cesium.Math.toDegrees(cartographic.longitude),
+        latitude: Cesium.Math.toDegrees(cartographic.latitude),
+        height: cartographic.height,
+        heading: this.viewer.camera.heading,
+        pitch: this.viewer.camera.pitch,
+        roll: this.viewer.camera.roll,
+      };
+    } catch (error) {
+      console.warn('CameraControl: Failed to update camera state:', error);
+    }
   }
 
   private updateUI(): void {
@@ -631,15 +734,33 @@ export class CameraControl {
   }
 
   private zoomIn(): void {
-    this.viewer.camera.zoomIn(
-      this.viewer.camera.positionCartographic.height * 0.2,
-    );
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot zoom in, viewer is invalid');
+      return;
+    }
+
+    try {
+      this.viewer.camera.zoomIn(
+        this.viewer.camera.positionCartographic.height * 0.2,
+      );
+    } catch (error) {
+      console.warn('CameraControl: Failed to zoom in:', error);
+    }
   }
 
   private zoomOut(): void {
-    this.viewer.camera.zoomOut(
-      this.viewer.camera.positionCartographic.height * 0.2,
-    );
+    if (!this.isViewerValid()) {
+      console.warn('CameraControl: Cannot zoom out, viewer is invalid');
+      return;
+    }
+
+    try {
+      this.viewer.camera.zoomOut(
+        this.viewer.camera.positionCartographic.height * 0.2,
+      );
+    } catch (error) {
+      console.warn('CameraControl: Failed to zoom out:', error);
+    }
   }
 }
 

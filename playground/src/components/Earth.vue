@@ -87,15 +87,26 @@
       destination: Cesium.Cartesian3.fromDegrees(107.47989129086449, 44.06166875558195, 1000),
       duration: 1
     });
-    [44.06166875558195, 44.15558195,44.25558195,44.35558195,44.45558195,44.55558195,44.65558195,44.75558195,44.85558195,44.95558195].forEach(lat=>{
+    // 测试高度响应式功能的多个标记
+    [44.06166875558195, 44.15558195,44.25558195,44.35558195,44.45558195,44.55558195,44.65558195,44.75558195,44.85558195,44.95558195].forEach((lat, index)=>{
       const marker = RippleMarker(viewer, {
         lon: 107.47989129086449,
         lat: lat,
+        pyramidHeight: 200, // 不同的圆锥体高度
         data: {
-          name: "北京市" + lat,
+          name: "标记" + (index + 1),
+        },
+        // 高度响应式配置
+        heightResponsive: {
+          enabled: true,
+          referenceHeight: 5000, // 圆锥体高度 + 3000m
+          minScale: 0.3, // 最小缩放 30%
+          maxScale: 1.5, // 最大缩放 150%，避免过度放大
+          fadeRange: 2000, // 3000m 淡入淡出范围
+          updateInterval: 100, // 100ms 更新间隔
         },
         label: {
-          text: "北京市" + lat,
+          text: "标记" + (index + 1),
           font: "18px sans-serif",
           fillColor: "#ffffff",
           backgroundColor: "rgba(0, 0, 0, 0.8)",
@@ -105,6 +116,9 @@
           backgroundPadding: { x: 12, y: 6 },
           textAlign: "center",
           verticalAlign: "middle",
+          // 优化标签位置 - 更贴近圆锥体顶部
+          heightOffset: 60, // 标签距离圆锥体顶部60米
+          pixelOffset: { x: 0, y: -20 }, // 微调像素偏移
         },
         onClick: (data, position) => {
           console.log("点击了标记:", data);

@@ -112,6 +112,15 @@ export interface RippleMarkerOptions {
     surfaceHeight?: number; // 三棱锥与波纹基准高度（米）
     id?: string; // 唯一标识符
     data?: any; // 绑定数据，点击时回调返回
+    // 高度响应式配置
+    heightResponsive?: {
+        enabled?: boolean; // 是否启用高度响应式缩放
+        referenceHeight?: number; // 参考高度（圆锥体高度 + 3000m）
+        minScale?: number; // 最小缩放比例
+        maxScale?: number; // 最大缩放比例
+        fadeRange?: number; // 淡入淡出范围（米）
+        updateInterval?: number; // 更新间隔（毫秒）
+    };
     label?: {
         text?: string; // 标签文字
         font?: string; // 字体样式，如 '14px sans-serif'
@@ -129,6 +138,8 @@ export interface RippleMarkerOptions {
         backgroundCornerRadius?: number; // 背景圆角半径
         textAlign?: 'left' | 'center' | 'right'; // 文字对齐方式
         verticalAlign?: 'top' | 'middle' | 'bottom'; // 垂直对齐方式
+        // 标签位置配置
+        heightOffset?: number; // 标签相对于圆锥体顶部的高度偏移（米），默认 80
     };
     onClick?: (data: any, position: { lon: number; lat: number }) => void; // 点击回调
 }
@@ -138,6 +149,7 @@ export interface RippleMarker {
     show: () => void;
     hide: () => void;
     setVisible: (visible: boolean) => void;
+    updateHeightResponsive: () => void; // 手动更新高度响应式效果
 }
 
 /**
@@ -174,6 +186,7 @@ export function RippleMarker(
         id,
         data,
         label,
+        heightResponsive,
         onClick,
     }: RippleMarkerOptions,
 ): RippleMarker {
@@ -182,6 +195,17 @@ export function RippleMarker(
         viewer.scene.requestRenderMode = false;
         if (viewer.clock) viewer.clock.shouldAnimate = true;
     }
+
+    // 高度响应式配置
+    const heightConfig = {
+        enabled: heightResponsive?.enabled ?? true,
+        referenceHeight: heightResponsive?.referenceHeight ?? (pyramidHeight + 3000),
+        minScale: heightResponsive?.minScale ?? 0.1,
+        maxScale: heightResponsive?.maxScale ?? 2.0,
+        fadeRange: heightResponsive?.fadeRange ?? 1000,
+        updateInterval: heightResponsive?.updateInterval ?? 100,
+    };
+
     const entities: Cesium.Entity[] = [];
     const cesiumColor = Cesium.Color.fromCssColorString(color);
     const baseRadiusMeters = baseRadius ?? pyramidHeight * 0.3;
@@ -289,8 +313,10 @@ export function RippleMarker(
     // 创建标签实体 - 固定在椎体上方
     let labelEntity: Cesium.Entity | null = null;
     if (label && label.text && label.show !== false) {
-        // 计算标签位置 - 固定在椎体尖端上方
-        const labelHeight = baseHeight + pyramidHeight + 200; // 在椎体尖端上方200米
+        // 优化标签位置计算 - 更贴近圆锥体顶部
+        // 公式：圆锥体高度 + 离地高度 + 用户自定义偏移
+        const labelOffset = label.heightOffset ?? 80; // 默认80米，用户可自定义
+        const labelHeight = baseHeight + pyramidHeight + labelOffset;
         const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, labelHeight);
 
         // 如果有背景板配置，使用 Canvas 创建自定义标签
@@ -301,7 +327,7 @@ export function RippleMarker(
                 position: labelPosition,
                 billboard: {
                     image: canvas,
-                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -30),
                     scale: label.scale || 1.0,
                     verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
                     disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -331,7 +357,7 @@ export function RippleMarker(
                     fillColor: label.fillColor ? Cesium.Color.fromCssColorString(label.fillColor) : Cesium.Color.WHITE,
                     outlineColor: backgroundBorderColor || (label.outlineColor ? Cesium.Color.fromCssColorString(label.outlineColor) : Cesium.Color.BLACK),
                     outlineWidth: label.backgroundBorderWidth || label.outlineWidth || 2,
-                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -50),
+                    pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -30),
                     scale: label.scale || 1.0,
                     style: Cesium.LabelStyle.FILL_AND_OUTLINE,
                     horizontalOrigin: horizontalOrigin,
@@ -422,10 +448,225 @@ export function RippleMarker(
 
     const startTime = Date.now();
 
+    // 高度响应式功能
+    let heightUpdateInterval: number | null = null;
+    let lastCameraHeight = 0;
+
+    // 计算缩放和透明度
+    function calculateScaleAndOpacity(cameraHeight: number) {
+        if (!heightConfig.enabled) {
+            return { scale: 1, opacity: 1, pyramidVisible: true, rippleVisible: true };
+        }
+
+        const referenceHeight = heightConfig.referenceHeight;
+        const heightDiff = Math.abs(cameraHeight - referenceHeight);
+        const fadeRange = heightConfig.fadeRange;
+
+        // 计算标签缩放比例（优化算法，避免过度放大）
+        let labelScale = 1;
+        let opacity = 1;
+        let pyramidVisible = true;
+        let rippleVisible = true;
+
+        if (cameraHeight < 3000) {
+            // 小于3000m时，不隐藏，只进行适度缩放
+            const heightRatio = cameraHeight / referenceHeight;
+            const maxNearScale = Math.min(heightConfig.maxScale, 1.5);
+            const scaleFactor = Math.max(heightConfig.minScale, Math.min(maxNearScale, 1 + (1 - heightRatio) * 0.3));
+            labelScale = scaleFactor;
+            opacity = 1; // 完全不透明
+            pyramidVisible = true;
+            rippleVisible = true;
+        } else if (cameraHeight < referenceHeight) {
+            // 3000m到参考高度之间，适度放大
+            const heightRatio = cameraHeight / referenceHeight;
+            const maxNearScale = Math.min(heightConfig.maxScale, 1.5);
+            const scaleFactor = Math.max(heightConfig.minScale, Math.min(maxNearScale, 1 + (1 - heightRatio) * 0.3));
+            labelScale = scaleFactor;
+            opacity = 1;
+            pyramidVisible = true;
+            rippleVisible = true;
+        } else {
+            // 高于参考高度时，缩小并可能淡出
+            const heightRatio = referenceHeight / cameraHeight;
+            const scaleFactor = Math.max(heightConfig.minScale, Math.min(heightConfig.maxScale, heightRatio));
+            labelScale = scaleFactor;
+
+            // 计算透明度（基于高度差）
+            if (heightDiff > fadeRange) {
+                opacity = Math.max(0, 1 - (heightDiff - fadeRange) / fadeRange);
+            }
+
+            // 圆锥体和涟漪的可见性
+            pyramidVisible = opacity > 0.1;
+            rippleVisible = opacity > 0.1;
+        }
+
+        return {
+            scale: labelScale,
+            opacity,
+            pyramidVisible,
+            rippleVisible,
+            pyramidOpacity: opacity // 圆锥体使用相同的透明度
+        };
+    }
+
+    // 统一的显示隐藏控制函数
+    function setEntityVisibility(entity: Cesium.Entity, visible: boolean, opacity: number = 1) {
+        if (!entity) return;
+
+        entity.show = visible;
+
+        if (visible) {
+            // 圆锥体面
+            if (entity.polygon && entity.id && String(entity.id).includes('face')) {
+                const currentColor = Cesium.Color.fromCssColorString(color);
+                entity.polygon.material = new Cesium.ColorMaterialProperty(
+                    currentColor.withAlpha(currentColor.alpha * opacity)
+                );
+            }
+
+            // 涟漪椭圆
+            if (entity.ellipse && entity.id && String(entity.id).includes('wave')) {
+                // 涟漪的透明度需要特殊处理，因为它使用 CallbackProperty
+                // 我们需要重新创建 materialProperty 来应用新的透明度
+                const materialProperty = new Cesium.ColorMaterialProperty(
+                    new Cesium.CallbackProperty((time) => {
+                        const safeDuration = Math.max(1, duration);
+                        const t = time ? Cesium.JulianDate.toDate(time).getTime() : Date.now();
+                        const elapsed = (t % safeDuration) / safeDuration;
+                        const waveIndex = parseInt(String(entity.id).split('_wave_')[1]);
+                        const wave = (elapsed + waveIndex / 3) % 1;
+                        const baseAlpha = (1 - wave) ** 2 * 0.6;
+                        const finalAlpha = baseAlpha * opacity;
+                        return Cesium.Color.fromAlpha(cesiumColor, finalAlpha);
+                    }, false),
+                );
+                entity.ellipse.material = materialProperty;
+            }
+
+            // 标签
+            if (entity.label) {
+                entity.label.fillColor = new Cesium.ConstantProperty(
+                    Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
+                );
+
+                if (label?.outlineColor) {
+                    entity.label.outlineColor = new Cesium.ConstantProperty(
+                        Cesium.Color.fromCssColorString(label.outlineColor).withAlpha(opacity)
+                    );
+                }
+            }
+
+            // Billboard
+            if (entity.billboard) {
+                entity.billboard.color = new Cesium.ConstantProperty(
+                    Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
+                );
+            }
+        }
+    }
+
+    // 更新实体高度响应式效果
+    function updateHeightResponsive() {
+        if (!heightConfig.enabled || !alive) return;
+
+        try {
+            // 检查 viewer 和 scene 是否存在
+            if (!viewer || !viewer.scene || !viewer.camera) {
+                console.warn('RippleMarker: Viewer or scene is not available, destroying component');
+                remove();
+                return;
+            }
+
+            const cameraHeight = viewer.camera.positionCartographic.height;
+
+            // 如果高度变化不大，跳过更新
+            if (Math.abs(cameraHeight - lastCameraHeight) < 10) return;
+
+            lastCameraHeight = cameraHeight;
+            const { scale, opacity, pyramidVisible, rippleVisible, pyramidOpacity } = calculateScaleAndOpacity(cameraHeight);
+
+            entities.forEach((entity) => {
+                if (!entity) return;
+
+                // 圆锥体不参与缩放，只参与显示/隐藏和透明度
+                if (entity.polygon && entity.id && String(entity.id).includes('face')) {
+                    setEntityVisibility(entity, pyramidVisible, pyramidOpacity || 1);
+                }
+
+                // 涟漪椭圆
+                if (entity.ellipse && entity.id && String(entity.id).includes('wave')) {
+                    setEntityVisibility(entity, rippleVisible, opacity);
+                }
+
+                // 更新标签缩放和透明度（只影响标签，不影响圆锥体）
+                if (entity.label) {
+                    entity.label.scale = new Cesium.ConstantProperty(scale);
+                    entity.label.fillColor = new Cesium.ConstantProperty(
+                        Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
+                    );
+
+                    if (label?.outlineColor) {
+                        entity.label.outlineColor = new Cesium.ConstantProperty(
+                            Cesium.Color.fromCssColorString(label.outlineColor).withAlpha(opacity)
+                        );
+                    }
+                }
+
+                // 更新 Billboard 缩放和透明度（自定义标签背景）
+                if (entity.billboard) {
+                    entity.billboard.scale = new Cesium.ConstantProperty(scale);
+                    entity.billboard.color = new Cesium.ConstantProperty(
+                        Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
+                    );
+                }
+            });
+        } catch (error) {
+            console.warn('RippleMarker: Failed to update height responsive:', error);
+            // 如果出现严重错误，销毁组件
+            if (error instanceof Error && error.message && error.message.includes('scene')) {
+                console.warn('RippleMarker: Scene error detected, destroying component');
+                // 避免递归调用，直接设置 alive = false 并清理定时器
+                alive = false;
+                if (heightUpdateInterval) {
+                    clearInterval(heightUpdateInterval);
+                    heightUpdateInterval = null;
+                }
+            }
+        }
+    }
+
+    // 启动高度监听
+    if (heightConfig.enabled) {
+        heightUpdateInterval = window.setInterval(updateHeightResponsive, heightConfig.updateInterval);
+    }
+
     // 清理函数
     function remove() {
         alive = false;
-        entities.forEach((entity) => viewer.entities.remove(entity));
+
+        // 清理高度监听
+        if (heightUpdateInterval) {
+            clearInterval(heightUpdateInterval);
+            heightUpdateInterval = null;
+        }
+
+        // 安全地移除实体，检查 viewer 是否还存在
+        try {
+            if (viewer && viewer.entities) {
+                entities.forEach((entity) => {
+                    try {
+                        viewer.entities.remove(entity);
+                    } catch (error) {
+                        console.warn('RippleMarker: Failed to remove entity:', error);
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('RippleMarker: Failed to access viewer.entities during cleanup:', error);
+        }
+
         if (clickHandler) {
             clickHandler();
         }
@@ -435,19 +676,19 @@ export function RippleMarker(
     // 显示/隐藏控制
     function show() {
         entities.forEach((entity) => {
-            entity.show = true;
+            setEntityVisibility(entity, true, 1);
         });
     }
 
     function hide() {
         entities.forEach((entity) => {
-            entity.show = false;
+            setEntityVisibility(entity, false, 0);
         });
     }
 
     function setVisible(visible: boolean) {
         entities.forEach((entity) => {
-            entity.show = visible;
+            setEntityVisibility(entity, visible, visible ? 1 : 0);
         });
     }
 
@@ -456,5 +697,6 @@ export function RippleMarker(
         show,
         hide,
         setVisible,
+        updateHeightResponsive,
     };
 }

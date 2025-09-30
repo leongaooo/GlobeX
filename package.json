@@ -1,6 +1,6 @@
 {
   "name": "cesium-kit",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Cesium utility components. RippleMarker | ViewerClick | CameraMoveEvent.",
   "type": "module",
   "main": "dist/index.js",
@@ -24,8 +24,7 @@
     "dev:play": "concurrently \"npm:build\" \"npm:play:start\"",
     "play:start": "npm --prefix playground run dev",
     "play:install": "npm --prefix playground i",
-    "pb": "npm publish --access public",
-    "upv": "npm version patch --no-git-tag-version",
+    "pb": "npm version patch --no-git-tag-version && npm publish --access public",
     "tag": "tsx scripts/create-tag.ts",
     "tph": "tsx scripts/create-and-push-tag.ts",
     "release": "npm run build && npm run tph && npm run pb"

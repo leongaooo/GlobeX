@@ -120,6 +120,9 @@ export interface RippleMarkerOptions {
         maxScale?: number; // 最大缩放比例
         fadeRange?: number; // 淡入淡出范围（米）
         updateInterval?: number; // 更新间隔（毫秒）
+        nearShrinkMultiple?: number; // 近地最小整体缩小倍数（例如 13 表示缩小到 1/13）
+        labelBoost?: number; // 标签近地可读性增强系数（如 1.8 表示在基础上再放大 1.8 倍）
+        labelMinScale?: number; // 标签最小缩放下限（默认 0.8），保证最小时仍可读
     };
     label?: {
         text?: string; // 标签文字
@@ -204,6 +207,9 @@ export function RippleMarker(
         maxScale: heightResponsive?.maxScale ?? 2.0,
         fadeRange: heightResponsive?.fadeRange ?? 1000,
         updateInterval: heightResponsive?.updateInterval ?? 100,
+        nearShrinkMultiple: heightResponsive?.nearShrinkMultiple ?? 13,
+        labelBoost: heightResponsive?.labelBoost ?? 1.8,
+        labelMinScale: heightResponsive?.labelMinScale ?? 0.8,
     };
 
     const entities: Cesium.Entity[] = [];
@@ -232,6 +238,28 @@ export function RippleMarker(
 
     // 创建动态波纹圈
     const numWaves = 3; // 同时显示的波纹数量
+    // 近地缩放：当相机高度低于（自身高度 + 200m）时，整体按比例缩小
+    let currentNearScale = 1; // 1 为不缩放，接近地面逐渐缩小到 nearMinScale
+    const nearStartHeight = pyramidHeight + 1000; // 开始缩小阈值（米）
+    const nearStopHeight = 0; // 支持缩放到 0m 仍保持可见与协调
+    // 近地最小缩放由配置控制，默认 13 倍缩小（约 1/13）
+    const nearMinScale = Math.max(1 / Math.max(1, heightConfig.nearShrinkMultiple), 0.01);
+
+    // 标签最小缩放，保证可读性
+    const labelScaleFloor = heightConfig.labelMinScale;
+    // 标签缩放增强系数：在近地缩小时额外放大，增强可读性
+    const labelScaleBoost = heightConfig.labelBoost;
+
+    function computeNearGroundScale(cameraHeight: number): number {
+        // t: 1 at start threshold, 0 at stop (0m)
+        const denom = Math.max(1, nearStartHeight - nearStopHeight);
+        const t = (cameraHeight - nearStopHeight) / denom; // >1 when far, <0 when below stop
+        const clamped = Math.max(0, Math.min(1, t));
+        // 使用非线性曲线（立方）在接近地面时更快逼近 nearMinScale
+        const eased = Math.pow(clamped, 3);
+        const s = nearMinScale + (1 - nearMinScale) * eased;
+        return Math.max(nearMinScale, Math.min(1, s));
+    }
     const waveEntities = Array.from({ length: numWaves }, (_, index) => {
         // 统一的半径属性，基于传入的 Cesium 时间，避免多次 Date.now 带来的微小差异
         const radiusProperty = new Cesium.CallbackProperty((time) => {
@@ -241,7 +269,15 @@ export function RippleMarker(
             const wave = (elapsed + index / numWaves) % 1;
             // 至少为 1，避免 0 导致几何异常；并确保为有限数值
             const r = Math.max(1, (wave || 0) * Math.max(1, maxRadius));
-            return r;
+            // 优化：波纹缩小更明显，但在最小缩放节点保持与菱形一致
+            const eps = 1e-3;
+            let rippleScale = currentNearScale;
+            if (currentNearScale > nearMinScale + eps) {
+                rippleScale = Math.max(nearMinScale, currentNearScale * currentNearScale);
+            }
+            // 应用缩放并设置最小可见半径，保证可观察
+            const scaled = Math.max(2, r * rippleScale);
+            return Math.max(1, scaled);
         }, false);
 
         const materialProperty = new Cesium.ColorMaterialProperty(
@@ -261,8 +297,8 @@ export function RippleMarker(
             ellipse: {
                 semiMinorAxis: radiusProperty,
                 semiMajorAxis: radiusProperty,
-                // 底部波纹保持在固定高度（surfaceHeight），不随三棱锥浮动
-                height: baseHeight,
+                // 贴地：基准高度随近地缩放向地面靠拢
+                height: new Cesium.CallbackProperty((_time) => baseHeight * currentNearScale, false),
                 material: materialProperty,
             },
         });
@@ -280,26 +316,29 @@ export function RippleMarker(
                     hierarchy: new Cesium.CallbackProperty((_time) => {
                         const t = Date.now();
                         const phase = ((t % floatPeriodMs) / floatPeriodMs) * 2 * Math.PI;
-                        const offset = floatEnabled ? Math.sin(phase) * floatAmplitude : 0;
+                        const offset = floatEnabled ? Math.sin(phase) * (floatAmplitude * currentNearScale) : 0;
                         const tip = Cesium.Cartesian3.fromDegrees(
                             lon,
                             lat,
-                            baseHeight + offset,
+                            // 贴地：尖端高度也随近地缩放靠拢地面
+                            baseHeight * currentNearScale + offset,
                         );
-                        const v1Local = v1deg
-                            ? Cesium.Cartesian3.fromDegrees(
-                                v1deg.x,
-                                v1deg.y,
-                                baseHeight + pyramidHeight + offset,
-                            )
-                            : tip;
-                        const v2Local = v2deg
-                            ? Cesium.Cartesian3.fromDegrees(
-                                v2deg.x,
-                                v2deg.y,
-                                baseHeight + pyramidHeight + offset,
-                            )
-                            : tip;
+                        // 计算水平缩放后的底部顶点经纬度（以当前 near scale 调整半径）
+                        const scaledRadius = baseRadiusMeters * currentNearScale;
+                        const v1Lon = lon + (scaledRadius * Math.cos((i * 2 * Math.PI) / 3)) / 111_000;
+                        const v1Lat = lat + (scaledRadius * Math.sin((i * 2 * Math.PI) / 3)) / 111_000;
+                        const v2Lon = lon + (scaledRadius * Math.cos(((i + 1) * 2 * Math.PI) / 3)) / 111_000;
+                        const v2Lat = lat + (scaledRadius * Math.sin(((i + 1) * 2 * Math.PI) / 3)) / 111_000;
+                        const v1Local = Cesium.Cartesian3.fromDegrees(
+                            v1Lon,
+                            v1Lat,
+                            baseHeight * currentNearScale + pyramidHeight * currentNearScale + offset,
+                        );
+                        const v2Local = Cesium.Cartesian3.fromDegrees(
+                            v2Lon,
+                            v2Lat,
+                            baseHeight * currentNearScale + pyramidHeight * currentNearScale + offset,
+                        );
                         return new Cesium.PolygonHierarchy([tip, v1Local, v2Local]);
                     }, false),
                     // 使用传入颜色作为填充材质，确保颜色应用到面上
@@ -316,15 +355,18 @@ export function RippleMarker(
         // 优化标签位置计算 - 更贴近圆锥体顶部
         // 公式：圆锥体高度 + 离地高度 + 用户自定义偏移
         const labelOffset = label.heightOffset ?? 80; // 默认80米，用户可自定义
-        const labelHeight = baseHeight + pyramidHeight + labelOffset;
-        const labelPosition = Cesium.Cartesian3.fromDegrees(lon, lat, labelHeight);
+        // 标签动态位置：随近地缩放调整高度，确保视觉协调
+        const labelPosition = new Cesium.CallbackProperty((_time) => {
+            const labelHeight = baseHeight * currentNearScale + pyramidHeight * currentNearScale + (labelOffset * currentNearScale);
+            return Cesium.Cartesian3.fromDegrees(lon, lat, labelHeight);
+        }, false);
 
         // 如果有背景板配置，使用 Canvas 创建自定义标签
         if (label.backgroundColor || label.backgroundBorderColor || label.backgroundCornerRadius) {
             const canvas = createLabelCanvas(label);
             labelEntity = viewer.entities.add({
                 id: `${markerId}_label`,
-                position: labelPosition,
+                position: labelPosition as any,
                 billboard: {
                     image: canvas,
                     pixelOffset: label.pixelOffset ? new Cesium.Cartesian2(label.pixelOffset.x, label.pixelOffset.y) : new Cesium.Cartesian2(0, -30),
@@ -350,7 +392,7 @@ export function RippleMarker(
 
             labelEntity = viewer.entities.add({
                 id: `${markerId}_label`,
-                position: labelPosition,
+                position: labelPosition as any,
                 label: {
                     text: label.text,
                     font: label.font || '14px sans-serif',
@@ -585,6 +627,8 @@ export function RippleMarker(
             if (Math.abs(cameraHeight - lastCameraHeight) < 10) return;
 
             lastCameraHeight = cameraHeight;
+            // 更新近地缩放系数
+            currentNearScale = computeNearGroundScale(cameraHeight);
             const { scale, opacity, pyramidVisible, rippleVisible, pyramidOpacity } = calculateScaleAndOpacity(cameraHeight);
 
             entities.forEach((entity) => {
@@ -602,7 +646,10 @@ export function RippleMarker(
 
                 // 更新标签缩放和透明度（只影响标签，不影响圆锥体）
                 if (entity.label) {
-                    entity.label.scale = new Cesium.ConstantProperty(scale);
+                    // 组合缩放并增强：高度响应式缩放 * 近地缩放 * 增强系数
+                    const raw = scale * currentNearScale * labelScaleBoost;
+                    const combinedLabelScale = Math.max(labelScaleFloor, Math.min(heightConfig.maxScale, raw));
+                    entity.label.scale = new Cesium.ConstantProperty(combinedLabelScale);
                     entity.label.fillColor = new Cesium.ConstantProperty(
                         Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
                     );
@@ -616,7 +663,10 @@ export function RippleMarker(
 
                 // 更新 Billboard 缩放和透明度（自定义标签背景）
                 if (entity.billboard) {
-                    entity.billboard.scale = new Cesium.ConstantProperty(scale);
+                    // 与标签一致的缩放策略
+                    const raw = scale * currentNearScale * labelScaleBoost;
+                    const combinedBillboardScale = Math.max(labelScaleFloor, Math.min(heightConfig.maxScale, raw));
+                    entity.billboard.scale = new Cesium.ConstantProperty(combinedBillboardScale);
                     entity.billboard.color = new Cesium.ConstantProperty(
                         Cesium.Color.fromCssColorString(label?.fillColor || '#ffffff').withAlpha(opacity)
                     );

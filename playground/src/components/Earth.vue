@@ -96,6 +96,8 @@
         data: {
           name: "标记" + (index + 1),
         },
+        height: 0,
+        maxRadius: 1000,
         // 高度响应式配置
         heightResponsive: {
           enabled: true,
@@ -104,6 +106,9 @@
           maxScale: 1.5, // 最大缩放 150%，避免过度放大
           fadeRange: 2000, // 3000m 淡入淡出范围
           updateInterval: 100, // 100ms 更新间隔
+          nearShrinkMultiple: 35,
+          labelBoost: 1.8,
+          labelMinScale: 0.9,
         },
         label: {
           text: "标记" + (index + 1),

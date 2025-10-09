@@ -249,7 +249,7 @@ markers.forEach((marker) => marker.remove());
 - **loops**?: `number` - 循环次数，`Infinity` 表示无限循环，默认 `Infinity`
 - **floatEnabled**?: `boolean` - 是否启用上下浮动动画，默认 `true`
 
-#### 高度响应式配置
+#### 高度响应式缩放控制配置
 
 - **heightResponsive**?: `HeightResponsiveOptions` - 高度响应式配置对象
 
@@ -261,6 +261,9 @@ markers.forEach((marker) => marker.remove());
 - **maxScale**?: `number` - 最大缩放比例，默认 `2.0`
 - **fadeRange**?: `number` - 淡入淡出范围（米），默认 `1000`
 - **updateInterval**?: `number` - 更新间隔（毫秒），默认 `100`
+- **nearShrinkMultiple**?: `number` - 近地最小整体缩小倍数（默认 `13`，表示最低可缩到原始的 `1/13`），相机接近地面时整体会平滑逼近此最小比例，且贴地显示
+- **labelBoost**?: `number` - 标签近地可读性增强系数（默认 `1.8`），用于在近地缩小时额外放大标签（与背景）以保证可读
+- **labelMinScale**?: `number` - 标签最小缩放下限（默认 `0.8`），用于限制标签在近地时的最小可见尺寸
 
 #### 标签配置
 

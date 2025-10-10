@@ -21,6 +21,23 @@
   box-shadow: 0 0 10px rgba(0, 150, 255, 0.3);
 }
 
+/* 方向高亮：根据 data-active-dir 在对应边缘增强光影 */
+.cesium-kit-control-circle[data-active-dir="up"] {
+  box-shadow: 0 -6px 16px rgba(25, 118, 210, 0.55), 0 0 18px rgba(25, 118, 210, 0.35);
+}
+
+.cesium-kit-control-circle[data-active-dir="down"] {
+  box-shadow: 0 6px 16px rgba(25, 118, 210, 0.55), 0 0 18px rgba(25, 118, 210, 0.35);
+}
+
+.cesium-kit-control-circle[data-active-dir="left"] {
+  box-shadow: -6px 0 16px rgba(25, 118, 210, 0.55), 0 0 18px rgba(25, 118, 210, 0.35);
+}
+
+.cesium-kit-control-circle[data-active-dir="right"] {
+  box-shadow: 6px 0 16px rgba(25, 118, 210, 0.55), 0 0 18px rgba(25, 118, 210, 0.35);
+}
+
 .cesium-kit-compass-track {
   position: absolute;
   top: 50%;
@@ -55,6 +72,12 @@
   color: #1d6cd9;
   /* SVG 会使用这个颜色 */
   background: none;
+}
+
+.cesium-kit-control-btn.pressed,
+.cesium-kit-control-btn:active {
+  background: radial-gradient(circle, rgba(180, 220, 250, 0.9) 0%, rgba(180, 220, 250, 0.1) 60%, rgba(180, 220, 250, 0.3) 100%);
+  color: #0d47a1;
 }
 
 .cesium-kit-control-btn svg {

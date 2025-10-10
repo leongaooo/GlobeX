@@ -5,6 +5,7 @@ export interface CameraControlOptions {
   zoomDistance?: number; // 默认500m
   containerId?: string; // 可选，指定容器ID，不指定则自动查找
   showCameraInfo?: boolean; // 是否显示相机信息，默认false
+  movementSpeedScale?: number; // 平移速度系数（可选），默认1
 }
 
 export interface CameraState {
@@ -33,11 +34,16 @@ export class CameraControl {
   private zoomSliderRef: HTMLElement | null = null;
   private cameraStateUpdateInterval: null | number = null;
   private isDestroyed: boolean = false;
+  private longPressIntervals: Map<string, number> = new Map();
+  private longPressTimeouts: Map<string, number> = new Map();
+  private longPressRafIds: Map<string, number> = new Map();
+  private movementSpeedScale: number = 1; // 可调节的平移速度系数
 
   constructor(options: CameraControlOptions) {
     this.viewer = options.viewer;
     this.zoomDistance = options.zoomDistance || 500;
     this.showCameraInfo = options.showCameraInfo || false;
+    this.movementSpeedScale = options.movementSpeedScale ?? 1;
     this.cameraState = {
       longitude: 0,
       latitude: 0,
@@ -67,6 +73,7 @@ export class CameraControl {
     document.removeEventListener('mouseup', this.handleMouseUp);
     this.stopAutoZoom();
     this.stopCameraStateUpdate();
+    this.clearAllLongPress();
 
     if (this.container && this.container.parentNode) {
       this.container.remove();
@@ -75,6 +82,146 @@ export class CameraControl {
 
   public getContainer(): HTMLElement {
     return this.container;
+  }
+
+  // 调整平移速度系数（阈值由调用方控制）
+  public setMovementSpeedScale(scale: number): void {
+    this.movementSpeedScale = Math.max(0.05, Math.min(scale, 5));
+  }
+
+  // 将角度规范到 (-π, π]
+  private normalizeAngle(angle: number): number {
+    let a = (angle + Math.PI) % (2 * Math.PI);
+    if (a < 0) a += 2 * Math.PI;
+    return a - Math.PI;
+  }
+
+  // 折叠俯仰到 [-π/2, π/2]，并按需为朝向增加 kπ 以实现无缝越界
+  private foldPitchAndAdjustHeading(totalPitch: number, heading: number): { pitch: number; heading: number } {
+    const k = Math.floor((totalPitch + Math.PI / 2) / Math.PI);
+    const foldedPitch = totalPitch - k * Math.PI; // in theory in [-π/2, π/2]
+    const adjustedHeading = heading + k * Math.PI;
+    return { pitch: foldedPitch, heading: adjustedHeading };
+  }
+
+  // 根据海拔高度计算动态数值
+  private getDynamicValue(baseValue: number, type: 'rotation' | 'movement'): number {
+    if (!this.isViewerValid()) {
+      return baseValue;
+    }
+
+    try {
+      const height = this.viewer.camera.positionCartographic.height;
+
+      if (type === 'rotation') {
+        // 旋转角度：固定0.15弧度，不随高度变化
+        return baseValue * 0.15; // 固定0.15弧度（约8.6度）
+      } else {
+        // 位置移动优化：高度越低移动越慢，越高越快（以米为单位更顺手）
+        // < 1000m: 10m ~ 40m 线性增长；>= 1000m: 按高度/40 缩放
+        const base = height < 1000 ? 10 + (height / 1000) * 30 : height / 40;
+        return baseValue * base * this.movementSpeedScale;
+      }
+    } catch (error) {
+      console.warn('CameraControl: Failed to calculate dynamic value:', error);
+      return baseValue;
+    }
+  }
+
+  // 以相机为参考的平移：上/下为前/后，左/右为左/右
+  private movePosition(direction: 'down' | 'left' | 'right' | 'up', distanceMeters: number): void {
+    try {
+      const camera = this.viewer.camera;
+      switch (direction) {
+        case 'up': {
+          camera.moveForward(distanceMeters);
+          break;
+        }
+        case 'down': {
+          camera.moveBackward(distanceMeters);
+          break;
+        }
+        case 'left': {
+          camera.moveLeft(distanceMeters);
+          break;
+        }
+        case 'right': {
+          camera.moveRight(distanceMeters);
+          break;
+        }
+      }
+    } catch (error) {
+      console.warn('CameraControl: Failed to move position:', error);
+    }
+  }
+
+  // 清除所有长按定时器
+  private clearAllLongPress(): void {
+    this.longPressIntervals.forEach((interval) => {
+      clearInterval(interval);
+    });
+    this.longPressIntervals.clear();
+
+    this.longPressTimeouts.forEach((timeout) => {
+      clearTimeout(timeout);
+    });
+    this.longPressTimeouts.clear();
+
+    this.longPressRafIds.forEach((id) => {
+      cancelAnimationFrame(id);
+    });
+    this.longPressRafIds.clear();
+  }
+
+  // 清除特定按钮的长按定时器
+  private clearLongPress(buttonId: string): void {
+    const interval = this.longPressIntervals.get(buttonId);
+    if (interval) {
+      clearInterval(interval);
+      this.longPressIntervals.delete(buttonId);
+    }
+
+    const timeout = this.longPressTimeouts.get(buttonId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.longPressTimeouts.delete(buttonId);
+    }
+
+    const rafId = this.longPressRafIds.get(buttonId);
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      this.longPressRafIds.delete(buttonId);
+    }
+  }
+
+  // 开始长按
+  private handleLongPressStart(event: MouseEvent, buttonId: string, action: () => void): void {
+    event.preventDefault();
+
+    // 立即执行一次动作
+    action();
+
+    // 设置长按延迟（150ms后开始连续执行）
+    const timeout = window.setTimeout(() => {
+      const loop = () => {
+        if (this.isDestroyed) {
+          this.clearLongPress(buttonId);
+          return;
+        }
+        action();
+        const id = requestAnimationFrame(loop);
+        this.longPressRafIds.set(buttonId, id);
+      };
+      const id = requestAnimationFrame(loop);
+      this.longPressRafIds.set(buttonId, id);
+    }, 150);
+
+    this.longPressTimeouts.set(buttonId, timeout);
+  }
+
+  // 结束长按
+  private handleLongPressEnd(buttonId: string): void {
+    this.clearLongPress(buttonId);
   }
 
   // 自动添加到页面
@@ -208,8 +355,8 @@ export class CameraControl {
 
     // 方向控制按钮
     const directions = [
-      { dir: 'up', title: '向上平移' },
-      { dir: 'down', title: '向下平移' },
+      { dir: 'up', title: '向前平移' },
+      { dir: 'down', title: '向后平移' },
       { dir: 'left', title: '向左平移' },
       { dir: 'right', title: '向右平移' },
     ];
@@ -218,7 +365,26 @@ export class CameraControl {
       const btn = document.createElement('button');
       btn.className = `cesium-kit-control-btn cesium-kit-arrow-btn ${dir}`;
       btn.title = title;
-      btn.addEventListener('click', () => this.panCamera(dir as any));
+
+      // 添加长按支持
+      // 视觉按下态
+      btn.addEventListener('mousedown', () => {
+        btn.classList.add('pressed');
+        controlCircle.setAttribute('data-active-dir', dir);
+      });
+      const clearActive = () => {
+        btn.classList.remove('pressed');
+        controlCircle.removeAttribute('data-active-dir');
+      };
+      btn.addEventListener('mouseup', clearActive);
+      btn.addEventListener('mouseleave', clearActive);
+      btn.addEventListener('mousedown', (e) => this.handleLongPressStart(e, `pan-${dir}`, () => this.panCamera(dir as any)));
+      btn.addEventListener('mouseup', () => this.handleLongPressEnd(`pan-${dir}`));
+      btn.addEventListener('mouseleave', () => this.handleLongPressEnd(`pan-${dir}`));
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.panCamera(dir as any);
+      });
 
       btn.innerHTML = this.getSvgIcon(`line-md--chevron-small-${dir}`);
       controlCircle.append(btn);
@@ -259,7 +425,26 @@ export class CameraControl {
       const btn = document.createElement('button');
       btn.className = `cesium-kit-control-btn cesium-kit-arrow-btn ${dir}`;
       btn.title = title;
-      btn.addEventListener('click', () => this.rotateCamera(dir as any));
+
+      // 添加长按支持
+      // 视觉按下态
+      btn.addEventListener('mousedown', () => {
+        btn.classList.add('pressed');
+        controlCircle.setAttribute('data-active-dir', dir);
+      });
+      const clearActive = () => {
+        btn.classList.remove('pressed');
+        controlCircle.removeAttribute('data-active-dir');
+      };
+      btn.addEventListener('mouseup', clearActive);
+      btn.addEventListener('mouseleave', clearActive);
+      btn.addEventListener('mousedown', (e) => this.handleLongPressStart(e, `rotate-${dir}`, () => this.rotateCamera(dir as any)));
+      btn.addEventListener('mouseup', () => this.handleLongPressEnd(`rotate-${dir}`));
+      btn.addEventListener('mouseleave', () => this.handleLongPressEnd(`rotate-${dir}`));
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.rotateCamera(dir as any);
+      });
 
       btn.innerHTML = this.getSvgIcon(`line-md--chevron-small-${dir}`);
       controlCircle.append(btn);
@@ -464,26 +649,8 @@ export class CameraControl {
     }
 
     try {
-      const camera = this.viewer.camera;
-
-      switch (direction) {
-        case 'down': {
-          camera.moveDown(1000);
-          break;
-        }
-        case 'left': {
-          camera.moveLeft(1000);
-          break;
-        }
-        case 'right': {
-          camera.moveRight(1000);
-          break;
-        }
-        case 'up': {
-          camera.moveUp(1000);
-          break;
-        }
-      }
+      const step = this.getDynamicValue(1, 'movement');
+      this.movePosition(direction, step);
     } catch (error) {
       console.warn('CameraControl: Failed to pan camera:', error);
     }
@@ -533,28 +700,41 @@ export class CameraControl {
     try {
       const currentHeading = this.viewer.camera.heading;
       const currentPitch = this.viewer.camera.pitch;
+      const dynamicRotation = this.getDynamicValue(0.15, 'rotation'); // 慢0.2倍（20%）
 
       let newHeading = currentHeading;
       let newPitch = currentPitch;
 
+      // 使用试探值避免在边界卡住
       switch (direction) {
         case 'down': {
-          newPitch = Math.min(newPitch + 0.1, Math.PI / 2);
+          // 向下：pitch 减小（相机向下看）
+          const totalPitch = currentPitch - dynamicRotation;
+          const folded = this.foldPitchAndAdjustHeading(totalPitch, newHeading);
+          newPitch = folded.pitch;
+          newHeading = folded.heading;
           break;
         }
         case 'left': {
-          newHeading = currentHeading - 0.1;
+          newHeading = currentHeading - dynamicRotation;
           break;
         }
         case 'right': {
-          newHeading = currentHeading + 0.1;
+          newHeading = currentHeading + dynamicRotation;
           break;
         }
         case 'up': {
-          newPitch = Math.max(newPitch - 0.1, -Math.PI / 2);
+          // 向上：pitch 增大（相机向上看）
+          const totalPitch = currentPitch + dynamicRotation;
+          const folded = this.foldPitchAndAdjustHeading(totalPitch, newHeading);
+          newPitch = folded.pitch;
+          newHeading = folded.heading;
           break;
         }
       }
+
+      // 规范化heading到 -π..π，避免数值过大
+      newHeading = this.normalizeAngle(newHeading);
 
       this.viewer.camera.setView({
         orientation: {
@@ -640,7 +820,7 @@ export class CameraControl {
 
       this.updateCameraState();
       this.updateUI();
-    }, 100);
+    }, 50);
   }
 
   private stopAutoZoom(): void {

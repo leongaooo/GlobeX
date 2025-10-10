@@ -79,12 +79,13 @@ const cameraControl = createCameraControl({
 
 ### CameraControlOptions
 
-| 参数             | 类型            | 默认值      | 描述                          |
-| ---------------- | --------------- | ----------- | ----------------------------- |
-| `viewer`         | `Cesium.Viewer` | -           | **必需** Cesium 查看器实例    |
-| `zoomDistance`   | `number`        | `500`       | 缩放距离（米）                |
-| `containerId`    | `string`        | `undefined` | 指定容器 ID，不指定则自动查找 |
-| `showCameraInfo` | `boolean`       | `false`     | 是否显示相机信息面板          |
+| 参数                 | 类型            | 默认值      | 描述                                               |
+| -------------------- | --------------- | ----------- | -------------------------------------------------- |
+| `viewer`             | `Cesium.Viewer` | -           | **必需** Cesium 查看器实例                         |
+| `zoomDistance`       | `number`        | `500`       | 缩放距离（米）                                     |
+| `containerId`        | `string`        | `undefined` | 指定容器 ID，不指定则自动查找                      |
+| `showCameraInfo`     | `boolean`       | `false`     | 是否显示相机信息面板                               |
+| `movementSpeedScale` | `number`        | `1`         | 平移速度系数（整体快慢调节），与高度自适应步长叠加 |
 
 ## 使用场景
 
@@ -108,6 +109,17 @@ const cameraControl = createCameraControl({
 ```
 
 ### 场景 3: 指定容器位置
+
+### 场景 4: 调整平移速度（更丝滑）
+
+```ts
+const cameraControl = createCameraControl({
+  viewer,
+  movementSpeedScale: 0.8, // 位置移动整体更慢
+});
+```
+
+说明：位置移动步长还会随高度自动调节（越低越慢、越高越快），`movementSpeedScale` 是全局倍率。
 
 ```javascript
 const cameraControl = createCameraControl({
@@ -137,9 +149,17 @@ const cameraControl = createCameraControl({
 
 ### 3. 丰富的交互体验
 
-- **平滑缩放**: 滑块控制，支持拖拽和点击
+- **平滑缩放/旋转/平移**: 长按采用 requestAnimationFrame 连续执行，60fps 丝滑
 - **实时反馈**: 缩放过程中实时更新相机位置
 - **视觉指示**: 方向指示器和相机信息面板
+
+### 4. 旋转体验优化
+
+- 上/下旋转采用俯仰折叠与朝向联动（取余式），越过 ±90° 无停顿、无突跳，可连续循环
+
+### 5. 位置移动体验优化
+
+- 平移（前/后/左/右）基于相机坐标系移动，并根据当前高度自适应步长：越低越慢、越高越快
 
 ## API 参考
 

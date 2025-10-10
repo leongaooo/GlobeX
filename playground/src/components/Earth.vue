@@ -79,6 +79,7 @@
       containerId: 'camera-bar', // 可选，指定容器ID
       showCameraInfo: true, // 显示相机信息
     });
+    cameraControl.setMovementSpeedScale(0.8)
 
     console.log('Camera control created:', cameraControl);
     console.log('Camera control container:', cameraControl.getContainer());

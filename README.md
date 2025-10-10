@@ -28,12 +28,34 @@ yarn add cesium-kit cesium
 
 ## 快速开始
 
-| 组件名          | 介绍                                                                     | 文档链接                                                       |
-| --------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| RippleMarker    | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点 | [src/RippleMarker/README.md](src/RippleMarker/README.md)       |
-| ViewerClick     | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示   | [src/ViewerClick/README.md](src/ViewerClick/README.md)         |
-| CameraMoveEvent | 监听 Cesium 相机移动事件，实时获取相机位置信息，支持控制台打印和位置查询 | [src/CameraMoveEvent/README.md](src/CameraMoveEvent/README.md) |
-| CameraControl   | 相机控制组件，提供旋转、平移、街景、缩放、相机状态信息等功能             | [src/Camera-Control/README.md](src/Camera-Control/README.md)   |
+### 使用示例（CameraControl）
+
+```ts
+import * as Cesium from "cesium";
+import { createCameraControl } from "cesium-kit";
+import "cesium-kit/styles/camera-control.css";
+
+const viewer = new Cesium.Viewer("viewerContainer");
+
+const cameraControl = createCameraControl({
+  viewer,
+  // 基础缩放距离（米）
+  zoomDistance: 500,
+  // 可选：挂载到指定容器（不传则自动查找）
+  containerId: "camera-bar",
+  // 可选：是否显示相机信息
+  showCameraInfo: false,
+  // 可选：平移速度系数（默认 1），配合“高度越低越慢”的自适应步长
+  movementSpeedScale: 0.8,
+});
+```
+
+| 组件名          | 介绍                                                                        | 文档链接                                                       |
+| --------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| RippleMarker    | 在已有的 `Cesium.Viewer` 实例中快速添加一个“倒立三棱锥 + 扩散波纹”的标点    | [src/RippleMarker/README.md](src/RippleMarker/README.md)       |
+| ViewerClick     | 封装 Viewer 的点击事件，回调函数返回经纬度和原始参数，提供 ts 类型提示      | [src/ViewerClick/README.md](src/ViewerClick/README.md)         |
+| CameraMoveEvent | 监听 Cesium 相机移动事件，实时获取相机位置信息，支持控制台打印和位置查询    | [src/CameraMoveEvent/README.md](src/CameraMoveEvent/README.md) |
+| CameraControl   | 相机控制组件，提供旋转、平移（前/后/左/右）、街景、缩放、相机状态信息等功能 | [src/Camera-Control/README.md](src/Camera-Control/README.md)   |
 
 ## 兼容性与打包说明
 
